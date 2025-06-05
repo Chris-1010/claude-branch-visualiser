@@ -6,13 +6,7 @@ function App() {
   
   return (
     <>
-      <div className="App">
-        <header className="App-header">
-          <h1>Claude Branch Visualiser</h1>
-        </header>
-        <main>
-        </main>
-      </div>
+      <ChatTree />
     </>
   )
 }
