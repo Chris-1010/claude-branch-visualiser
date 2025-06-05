@@ -19,7 +19,7 @@ const ChatTree = () => {
     return (
       <li className={`tree-node ${isLast ? "last-child" : ""}`}>
         <div
-          className="node-content"
+          className={`node-content ${node.sender === "human" ? "user-message" : "assistant-message"} ${currentlySelectedMessage?.uuid === node.uuid ? "selected" : ""}`}
           onClick={() => handleNodeClick(node)}
         >
           {getNodeText(node)}

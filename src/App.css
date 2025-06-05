@@ -2,6 +2,8 @@
 
 * {
   box-sizing: border-box;
+  transition: 0.5s ease;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
 input {
@@ -143,6 +145,9 @@ footer {}
   transition: background-color 0.2s;
   max-width: 300px;
   word-wrap: break-word;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .node-content:hover {
@@ -150,16 +155,17 @@ footer {}
   border-color: #777;
 }
 
-.tooltip {
-  background-color: #000;
-  color: white;
-  padding: 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  border: 1px solid #555;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  pointer-events: none;
-  white-space: nowrap;
+.node-content.selected {
+  background: #616161;
+  border-color: #ff6f00;
+}
+
+/* Remove assistant messages */
+.node-content.assistant-message {
+  background: #2a2a2a;
+  color: #b0b0b0;
+  border-color: #444;
+  font-size: 0.7rem;
 }
 
 /* Handle root nodes */
@@ -183,6 +189,8 @@ footer {}
 /* #region DetailsPane */
 
 .details-pane {
+  display: flex;
+  flex-direction: column;
   width: 350px; 
   background: #2a2a2a;
   padding: 20px;
@@ -190,11 +198,17 @@ footer {}
   color: white;
 }
 
+.details-pane > div {
+  flex-grow: 1;
+  overflow: auto;
+}
+
 .message-content {
   margin-top: 10px;
   padding: 10px;
   background: #333;
   border-radius: 4px;
+  white-space: break-spaces;
 }
 
 /* #endregion */
