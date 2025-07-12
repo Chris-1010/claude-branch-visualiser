@@ -1,4 +1,3 @@
-import "./App.css"
 import { ChatProvider } from './context/ChatContext'
 import Header from './components/Header'
 import ChatTree from "./components/ChatTree"
