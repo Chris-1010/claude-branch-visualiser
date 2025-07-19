@@ -1,38 +1,36 @@
-import React from 'react'
-import { useChatContext } from '../context/ChatContext'
+import React from "react";
+import { useChatContext } from "../context/ChatContext";
+import Search from "./Search";
 
 const Header: React.FC = () => {
-  const { setAllMessages } = useChatContext()
+	const { allMessages, setAllMessages } = useChatContext();
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        try {
-          const data = JSON.parse(e.target?.result as string)
-          // Extract the chat_messages array from the conversation object
-          setAllMessages(data.chat_messages || [])
-        } catch (error) {
-          console.error('Error parsing JSON:', error)
-        }
-      }
-      reader.readAsText(file)
-    }
-  }
+	const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+		if (file) {
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				try {
+					const data = JSON.parse(e.target?.result as string);
+					// Extract the chat_messages array from the conversation object
+					setAllMessages(data.chat_messages || []);
+				} catch (error) {
+					console.error("Error parsing JSON:", error);
+				}
+			};
+			reader.readAsText(file);
+		}
+	};
 
-  return (
-    <header>
-      <h1>Claude Branch Visualiser</h1>
+	return (
+		<header>
+			<h1>Claude Branch Visualiser</h1>
 
-      <input
-        className='file-input'
-        type="file"
-        accept=".json"
-        onChange={handleFileUpload}
-      />
-    </header>
-  )
-}
+			{allMessages.length > 0 && <Search />}
 
-export default Header
+			<input className="file-input" type="file" accept=".json" onChange={handleFileUpload} />
+		</header>
+	);
+};
+
+export default Header;
