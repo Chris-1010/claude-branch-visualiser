@@ -111,44 +111,45 @@ const Search: React.FC = () => {
 	//#endregion
 
 	return (
-		<div className="search-container">
-			<SearchIcon className={`search-button${isOpen ? ' active' : ''}`} size={20} onClick={handleSearchClick} />
-
-			<div className="search-dropdown">
-				<div className="search-input-container">
-					<input
-						ref={inputRef}
-						type="text"
-						placeholder="Search messages..."
-						value={searchQuery}
-						onChange={(e) => setSearchQuery(e.target.value)}
-						onKeyDown={handleKeyDown}
-						className="search-input"
-					/>
-					<button className="search-close" onClick={handleClose}>
-						<X size={16} />
-					</button>
-				</div>
-
-				{searchResults.length > 0 && (
-					<div className="search-results">
-						{searchResults.map((result, index) => (
-							<div
-								key={result.message.uuid}
-								className={`search-result ${index === selectedIndex ? "selected" : ""}`}
-								onClick={() => handleResultClick(result)}
-							>
-								<div className="search-result-sender">{result.message.sender === "human" ? "You" : "Claude"}</div>
-								<div className="search-result-context">{result.context}</div>
-								<div className="search-result-date">{new Date(result.message.created_at).toLocaleDateString()}</div>
-							</div>
-						))}
+		<>
+			{allMessages.length > 0 && <SearchIcon className={`search-button${isOpen ? " active" : ""}`} size={60} onClick={handleSearchClick} />}
+			<div className="search-container">
+				<div className="search-dropdown">
+					<div className="search-input-container">
+						<input
+							ref={inputRef}
+							type="text"
+							placeholder="Search messages..."
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							onKeyDown={handleKeyDown}
+							className="search-input"
+						/>
+						<button className="search-close" onClick={handleClose}>
+							<X size={25} />
+						</button>
 					</div>
-				)}
 
-				{searchQuery && searchResults.length === 0 && <div className="search-no-results">No messages found matching "{searchQuery}"</div>}
+					{searchResults.length > 0 && (
+						<div className="search-results">
+							{searchResults.map((result, index) => (
+								<div
+									key={result.message.uuid}
+									className={`search-result ${index === selectedIndex ? "selected" : ""}`}
+									onClick={() => handleResultClick(result)}
+								>
+									<div className="search-result-sender">{result.message.sender === "human" ? "You" : "Claude"}</div>
+									<div className="search-result-context">{result.context}</div>
+									<div className="search-result-date">{new Date(result.message.created_at).toLocaleDateString()}</div>
+								</div>
+							))}
+						</div>
+					)}
+
+					{searchQuery && searchResults.length === 0 && <div className="search-no-results">No messages found matching "{searchQuery}"</div>}
+				</div>
 			</div>
-		</div>
+		</>
 	);
 };
 

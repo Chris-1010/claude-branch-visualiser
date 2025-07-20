@@ -1,9 +1,8 @@
 import React from "react";
 import { useChatContext } from "../context/ChatContext";
-import Search from "./Search";
 
 const Header: React.FC = () => {
-	const { allMessages, setAllMessages } = useChatContext();
+	const { setAllMessages } = useChatContext();
 
 	const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
@@ -25,8 +24,6 @@ const Header: React.FC = () => {
 	return (
 		<header>
 			<h1>Claude Branch Visualiser</h1>
-
-			{allMessages.length > 0 && <Search />}
 
 			<input className="file-input" type="file" accept=".json" onChange={handleFileUpload} />
 		</header>

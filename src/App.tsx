@@ -1,18 +1,20 @@
-import { ChatProvider } from './context/ChatContext'
-import Header from './components/Header'
-import ChatTree from "./components/ChatTree"
-import DetailsPane from './components/DetailsPane'
+import { ChatProvider } from "./context/ChatContext";
+import Header from "./components/Header";
+import ChatTree from "./components/ChatTree";
+import DetailsPane from "./components/DetailsPane";
+import Search from "./components/Search";
 
 function App() {
-  return (
-    <ChatProvider>
-        <Header />
-        <div className="content">
-          <ChatTree />
-          <DetailsPane />
-        </div>
-    </ChatProvider>
-  )
+	return (
+		<ChatProvider>
+			<Header />
+			<Search />
+			<div className="content">
+				<ChatTree />
+				<DetailsPane />
+			</div>
+		</ChatProvider>
+	);
 }
 
-export default App
+export default App;
