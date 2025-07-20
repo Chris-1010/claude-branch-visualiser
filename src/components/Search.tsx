@@ -18,6 +18,7 @@ const Search: React.FC = () => {
 	const [selectedIndex, setSelectedIndex] = useState(-1);
 	const { allMessages, setCurrentlySelectedMessage } = useChatContext();
 	const inputRef = useRef<HTMLInputElement>(null);
+	const dropdownRef = useRef<HTMLDivElement>(null);
 	//#endregion
 
 	//#region Search Logic
@@ -65,10 +66,47 @@ const Search: React.FC = () => {
 	}, [searchQuery, allMessages]);
 	//#endregion
 
+	//#region Keyboard and Click Outside Handlers
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "s" || e.key === "S") {
+				// Only trigger if not typing in an input/textarea
+				if (document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
+					e.preventDefault();
+					if (!isOpen && allMessages.length > 0) {
+						setIsOpen(true);
+						setTimeout(() => inputRef.current?.focus(), 100);
+					}
+				}
+			}
+		};
+
+		const handleClickOutside = (e: MouseEvent) => {
+			if (isOpen && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+				handleClose();
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		document.addEventListener("mousedown", handleClickOutside);
+
+		return () => {
+			document.removeEventListener("keydown", handleKeyDown);
+			document.removeEventListener("mousedown", handleClickOutside);
+		};
+	}, [isOpen, allMessages.length]);
+	//#endregion
+
 	//#region Event Handlers
 	const handleSearchClick = () => {
-		setIsOpen(true);
-		setTimeout(() => inputRef.current?.focus(), 100);
+		let newState = !isOpen;
+		if (newState) {
+			setTimeout(() => inputRef.current?.focus(), 100);
+			setCurrentlySelectedMessage(null);
+			setIsOpen(true);
+		} else {
+			handleClose();
+		}
 	};
 
 	const handleClose = () => {
@@ -76,6 +114,9 @@ const Search: React.FC = () => {
 		setSearchQuery("");
 		setSearchResults([]);
 		setSelectedIndex(-1);
+		if (inputRef.current) {
+			inputRef.current.blur();
+		}
 	};
 
 	const handleResultClick = (result: SearchResult) => {
@@ -114,7 +155,7 @@ const Search: React.FC = () => {
 		<>
 			{allMessages.length > 0 && <SearchIcon className={`search-button${isOpen ? " active" : ""}`} size={60} onClick={handleSearchClick} />}
 			<div className="search-container">
-				<div className="search-dropdown">
+				<div className="search-dropdown" ref={dropdownRef}>
 					<div className="search-input-container">
 						<input
 							ref={inputRef}
