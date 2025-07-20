@@ -4,13 +4,17 @@ import { Search as SearchIcon, X } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
 //#endregion
 
+interface SearchProps {
+	chatTreeRef: React.RefObject<ChatTreeRef>;
+}
+
 interface SearchResult {
 	message: any;
 	matchText: string;
 	context: string;
 }
 
-const Search: React.FC = () => {
+const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 	//#region State
 	const [isOpen, setIsOpen] = useState(false);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -121,18 +125,13 @@ const Search: React.FC = () => {
 
 	const handleResultClick = (result: SearchResult) => {
 		// Find the message in the tree structure
-		const findMessageInTree = (treeData: any[], targetUuid: string): any => {
-			for (const node of treeData) {
-				if (node.uuid === targetUuid) return node;
-				if (node.children) {
-					const found = findMessageInTree(node.children, targetUuid);
-					if (found) return found;
-				}
-			}
-			return null;
-		};
-
 		setCurrentlySelectedMessage(result.message);
+
+		// Scroll to the node in the GoJS diagram
+		if (chatTreeRef.current) {
+            chatTreeRef.current.scrollToMessage(result.message.uuid);
+        }
+
 		handleClose();
 	};
 

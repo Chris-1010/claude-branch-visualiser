@@ -1,10 +1,14 @@
 //#region Imports
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as go from "gojs";
 import { useChatContext } from "../context/ChatContext";
 //#endregion
 
-const ChatTree = () => {
+interface ChatTreeRef {
+    scrollToMessage: (messageUuid: string) => void;
+}
+
+const ChatTree = forwardRef<ChatTreeRef>((props, ref) => {
 	const { treeData, currentlySelectedMessage, setCurrentlySelectedMessage } = useChatContext();
 	const diagramRef = useRef<HTMLDivElement>(null);
 	const diagramInstanceRef = useRef<go.Diagram | null>(null);
@@ -20,38 +24,36 @@ const ChatTree = () => {
 				angle: 90,
 				layerSpacing: 35,
 				nodeSpacing: 10,
-				arrangement: go.TreeLayout.ArrangementHorizontal
+				arrangement: go.TreeLayout.ArrangementHorizontal,
 			}),
 			"toolManager.hoverDelay": 100,
 			"animationManager.isEnabled": false,
-			"scrollsPageOnFocus": false,
-			padding: new go.Margin(150, 500, 100, 100)
+			scrollsPageOnFocus: false,
+			padding: new go.Margin(150, 500, 100, 100),
 		});
 
 		// Define node template
 		myDiagram.nodeTemplate = new go.Node("Auto", {
 			movable: false,
 			copyable: false,
-			deletable: false
-		})
-			.add(
-				new go.Shape("RoundedRectangle", {
-					strokeWidth: 1,
-					stroke: "#555",
-					fill: "#333"
-				})
-					.bind("fill", "color")
-					.bind("stroke", "isSelected", (sel) => sel ? "#ff6f00" : "#555"),
-				new go.TextBlock({
-					margin: 8,
-					font: "12px sans-serif",
-					stroke: "white",
-					maxSize: new go.Size(200, NaN),
-					wrap: go.TextBlock.WrapFit,
-					textAlign: "center"
-				})
-					.bind("text")
-			);
+			deletable: false,
+		}).add(
+			new go.Shape("RoundedRectangle", {
+				strokeWidth: 1,
+				stroke: "#555",
+				fill: "#333",
+			})
+				.bind("fill", "color")
+				.bind("stroke", "isSelected", (sel) => (sel ? "#ff6f00" : "#555")),
+			new go.TextBlock({
+				margin: 8,
+				font: "12px sans-serif",
+				stroke: "white",
+				maxSize: new go.Size(200, NaN),
+				wrap: go.TextBlock.WrapFit,
+				textAlign: "center",
+			}).bind("text")
+		);
 
 		// Define link template
 		myDiagram.linkTemplate = new go.Link({
@@ -60,11 +62,8 @@ const ChatTree = () => {
 			selectable: false,
 			reshapable: false,
 			relinkableFrom: false,
-			relinkableTo: false
-		})
-			.add(
-				new go.Shape({ strokeWidth: 2, stroke: "#666" })
-			);
+			relinkableTo: false,
+		}).add(new go.Shape({ strokeWidth: 2, stroke: "#666" }));
 
 		// Handle selection changes without triggering scroll
 		myDiagram.addDiagramListener("ChangedSelection", (e) => {
@@ -80,9 +79,11 @@ const ChatTree = () => {
 		});
 
 		// Disable automatic scrolling when selecting
-		myDiagram.commandHandler.scrollToPart = function() {
+		myDiagram.commandHandler.scrollToPart = function () {
 			// Override to do nothing - prevents automatic scrolling
 		};
+
+		
 
 		diagramInstanceRef.current = myDiagram;
 
@@ -92,7 +93,7 @@ const ChatTree = () => {
 			}
 		};
 	}, [setCurrentlySelectedMessage]);
-	
+
 	//#endregion
 
 	//#region Data Processing
@@ -117,7 +118,7 @@ const ChatTree = () => {
 				text: getNodeText(node),
 				color: node.sender === "human" ? "#444" : "#ff6f00",
 				isSelected: currentlySelectedMessage?.uuid === node.uuid,
-				originalMessage: node
+				originalMessage: node,
 			};
 			nodes.push(nodeData);
 
@@ -181,6 +182,33 @@ const ChatTree = () => {
 	}, [currentlySelectedMessage]);
 	//#endregion
 
+	//#region Expose Scroll Method
+	useEffect(() => {
+		// Expose scrollToMessage method on the diagram instance for external use
+		if (diagramInstanceRef.current) {
+			(diagramInstanceRef.current as any).scrollToMessage = (messageUuid: string) => {
+				const node = diagramInstanceRef.current!.findNodeForKey(messageUuid);
+				if (node) {
+					diagramInstanceRef.current!.select(node);
+					diagramInstanceRef.current!.centerRect(node.actualBounds);
+				}
+			};
+		}
+	}, []);
+	//#endregion
+
+	useImperativeHandle(ref, () => ({
+        scrollToMessage: (messageUuid: string) => {
+            if (diagramInstanceRef.current) {
+                const node = diagramInstanceRef.current.findNodeForKey(messageUuid);
+                if (node) {
+                    diagramInstanceRef.current.select(node);
+                    diagramInstanceRef.current.centerRect(node.actualBounds);
+                }
+            }
+        }
+	}));
+	
 	return (
 		<div className="chat-tree-container">
 			<div
@@ -188,11 +216,12 @@ const ChatTree = () => {
 				style={{
 					width: "100%",
 					height: "100%",
-					backgroundColor: "#1a1a1a"
+					backgroundColor: "#1a1a1a",
 				}}
 			/>
 		</div>
 	);
-};
+});
 
 export default ChatTree;
+export type { ChatTreeRef };
