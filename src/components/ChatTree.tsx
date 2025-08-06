@@ -29,7 +29,7 @@ const ChatTree = forwardRef<ChatTreeRef>((props, ref) => {
 			"toolManager.hoverDelay": 100,
 			"animationManager.isEnabled": false,
 			scrollsPageOnFocus: false,
-			padding: new go.Margin(150, 500, 100, 100),
+			padding: new go.Margin(200, 500, 100, 320),
 		});
 
 		// Define node template

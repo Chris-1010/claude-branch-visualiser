@@ -1,12 +1,12 @@
 //#region Imports
 import React, { useRef, useState, useEffect } from "react";
-import { Trash2, Upload, FileText, Clock, Settings } from "lucide-react";
+import { Trash2, Upload, FileText, Clock, Eraser } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
 //#endregion
 
 const Sidebar: React.FC = () => {
 	//#region State and Refs
-	const { chatFiles, currentChatFile, setCurrentChatFile, addOrUpdateChatFile, deleteChatFile, clearAllData, getStorageInfo, isLoading } =
+	const { chatFiles, currentChatFile, setCurrentChatFile, addOrUpdateChatFile, deleteChatFile, clearAllData, getStorageInfo, isLoading, sidebarOpen } =
 		useChatContext();
 
 	const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -25,6 +25,26 @@ const Sidebar: React.FC = () => {
 		}
 	}, [chatFiles, isLoading, getStorageInfo]);
 	//#endregion
+
+	const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+		const file = event.target.files?.[0];
+		if (file) {
+			const reader = new FileReader();
+			reader.onload = async (e) => {
+				try {
+					const data = JSON.parse(e.target?.result as string);
+					// Extract the chat_messages array from the conversation object
+					await addOrUpdateChatFile(file.name, data.chat_messages || []);
+				} catch (error) {
+					console.error("Error parsing JSON:", error);
+					alert("Failed to parse JSON file. Check console for details.");
+				}
+			};
+			reader.readAsText(file);
+		}
+		// Reset the input so same file can be uploaded again
+		event.target.value = "";
+	};
 
 	//#region File Upload Handler
 	const handleFileUpdate = async (chatFileId: string, event: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,16 +158,22 @@ const Sidebar: React.FC = () => {
 	}
 
 	return (
-		<div className="sidebar">
+		<div className={`sidebar${sidebarOpen ? ' active' : ''}`}>
 			<div className="sidebar-header">
 				<h2>Chat Files</h2>
 				<div className="sidebar-header-actions">
 					<button className="sidebar-header-btn" onClick={handleClearAllData} title="Clear all data">
-						<Settings size={16} />
+						<Eraser size={16} />
 					</button>
 				</div>
 			</div>
-
+			<div className="file-upload">
+				<input id="upload" type="file" accept=".json" onChange={handleFileUpload} />
+				<label htmlFor="upload" className="upload-button">
+					<Upload size={20} />
+					Upload
+				</label>
+			</div>
 			<div className="sidebar-content">
 				{chatFiles.length === 0 ? (
 					<div className="sidebar-empty">
@@ -212,7 +238,7 @@ const Sidebar: React.FC = () => {
 
 						<div className="sidebar-footer">
 							<div className="sidebar-storage-info">
-								Storage: {storageInfo.sizeEstimate} • {storageInfo.count} files
+								Storage: {storageInfo.sizeEstimate} • {storageInfo.count} file{storageInfo.count !== 1 ? "s" : ""}
 							</div>
 						</div>
 					</>
