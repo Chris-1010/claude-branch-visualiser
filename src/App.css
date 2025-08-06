@@ -280,9 +280,36 @@ footer {}
 }
 
 .sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 20px;
   border-bottom: 1px solid #444;
   background: #333;
+}
+
+.sidebar-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.sidebar-header-btn {
+  background: transparent;
+  border: 1px solid #555;
+  color: #ccc;
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-header-btn:hover {
+  background: #444;
+  border-color: #666;
+  color: #f44336;
 }
 
 .sidebar-header h2 {
@@ -413,13 +440,20 @@ footer {}
   border-color: #f44336;
 }
 
-/* Update content area to accommodate sidebar */
-div.content {
-  display: flex;
-  height: 100vh;
+.sidebar-footer {
+  padding: 16px 0;
+  border-top: 1px solid #444;
+  margin-top: 16px;
 }
 
-.chat-tree-container {
+.sidebar-storage-info {
+  text-align: center;
+  font-size: 11px;
+  color: #999;
+}
+
+.sidebar-item-name {
   flex: 1;
+  min-width: 0; /* Allow text truncation */
 }
 /* #endregion */

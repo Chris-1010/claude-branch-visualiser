@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect } from 'react'
+import { dbManager, type ChatFile } from '../utils/indexedDB'
+
 
 //#region Interfaces
 interface MessageContent {
@@ -31,24 +33,19 @@ interface MessageWithChildren extends Message {
   children: Message[]
 }
 
-interface ChatFile {
-  id: string
-  name: string
-  lastUpdated: string
-  messages: Message[]
-  treeData: MessageWithChildren[]
-}
-
 interface ChatContextType {
   chatFiles: ChatFile[]
   currentChatFile: ChatFile | null
   allMessages: Message[]
   treeData: MessageWithChildren[]
   currentlySelectedMessage: MessageWithChildren | null
-  addOrUpdateChatFile: (fileName: string, messages: Message[]) => void
-  setCurrentChatFile: (chatFile: ChatFile | null) => void
+  isLoading: boolean
+  addOrUpdateChatFile: (fileName: string, messages: Message[]) => Promise<void>
+  setCurrentChatFile: (chatFile: ChatFile | null) => Promise<void>
   setCurrentlySelectedMessage: (message: MessageWithChildren | null) => void
-  deleteChatFile: (id: string) => void
+  deleteChatFile: (id: string) => Promise<void>
+  clearAllData: () => Promise<void>
+  getStorageInfo: () => Promise<{ count: number; sizeEstimate: string }>
 }
 //#endregion
 
@@ -62,11 +59,12 @@ export const useChatContext = () => {
   return context
 }
 
-export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   //#region State
   const [chatFiles, setChatFiles] = useState<ChatFile[]>([])
-  const [currentChatFile, setCurrentChatFile] = useState<ChatFile | null>(null)
+  const [currentChatFile, setCurrentChatFileState] = useState<ChatFile | null>(null)
   const [currentlySelectedMessage, setCurrentlySelectedMessage] = useState<MessageWithChildren | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   //#endregion
 
   //#region Tree Building Logic
@@ -95,38 +93,127 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }
   //#endregion
 
+  //#region Load Initial Data
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Load all chat files
+        const savedChatFiles = await dbManager.getAllChatFiles()
+        
+        // Rebuild tree data for all files
+        const processedChatFiles = savedChatFiles.map(file => ({
+          ...file,
+          treeData: buildTree(file.messages)
+        }))
+        
+        setChatFiles(processedChatFiles)
+        
+        // Load current chat file setting
+        const currentChatId = await dbManager.getSetting('currentChatId')
+        if (currentChatId && processedChatFiles.length > 0) {
+          const currentFile = processedChatFiles.find(file => file.id === currentChatId)
+          if (currentFile) {
+            setCurrentChatFileState(currentFile)
+          }
+        }
+        
+        console.log(`Loaded ${processedChatFiles.length} chat files from IndexedDB`)
+      } catch (error) {
+        console.error('Failed to load initial data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadInitialData()
+  }, [])
+  //#endregion
+
   //#region Chat File Management
-  const addOrUpdateChatFile = (fileName: string, messages: Message[]) => {
-    const existingFileIndex = chatFiles.findIndex(file => file.name === fileName)
-    const treeData = buildTree(messages)
-    
-    const chatFile: ChatFile = {
-      id: existingFileIndex !== -1 ? chatFiles[existingFileIndex].id : Date.now().toString(),
-      name: fileName,
-      lastUpdated: new Date().toISOString(),
-      messages,
-      treeData
-    }
+  const addOrUpdateChatFile = async (fileName: string, messages: Message[]): Promise<void> => {
+    try {
+      const existingFileIndex = chatFiles.findIndex(file => file.name === fileName)
+      const treeData = buildTree(messages)
+      
+      const chatFile: ChatFile = {
+        id: existingFileIndex !== -1 ? chatFiles[existingFileIndex].id : Date.now().toString(),
+        name: fileName,
+        lastUpdated: new Date().toISOString(),
+        messages,
+        treeData
+      }
 
-    if (existingFileIndex !== -1) {
-      // Update existing file
-      const updatedFiles = [...chatFiles]
-      updatedFiles[existingFileIndex] = chatFile
-      setChatFiles(updatedFiles)
-    } else {
-      // Add new file
-      setChatFiles(prev => [...prev, chatFile])
-    }
+      // Save to IndexedDB
+      await dbManager.saveChatFile(chatFile)
 
-    setCurrentChatFile(chatFile)
-    setCurrentlySelectedMessage(null)
+      // Update local state
+      if (existingFileIndex !== -1) {
+        const updatedFiles = [...chatFiles]
+        updatedFiles[existingFileIndex] = chatFile
+        setChatFiles(updatedFiles)
+      } else {
+        setChatFiles(prev => [...prev, chatFile])
+      }
+
+      setCurrentChatFileState(chatFile)
+      setCurrentlySelectedMessage(null)
+    } catch (error) {
+      console.error('Failed to add/update chat file:', error)
+      throw error
+    }
   }
 
-  const deleteChatFile = (id: string) => {
-    setChatFiles(prev => prev.filter(file => file.id !== id))
-    if (currentChatFile?.id === id) {
-      setCurrentChatFile(null)
+  const setCurrentChatFile = async (chatFile: ChatFile | null): Promise<void> => {
+    try {
+      setCurrentChatFileState(chatFile)
+      await dbManager.saveSetting('currentChatId', chatFile?.id || null)
       setCurrentlySelectedMessage(null)
+    } catch (error) {
+      console.error('Failed to set current chat file:', error)
+    }
+  }
+
+  const deleteChatFile = async (id: string): Promise<void> => {
+    try {
+      await dbManager.deleteChatFile(id)
+      
+      setChatFiles(prev => prev.filter(file => file.id !== id))
+      
+      if (currentChatFile?.id === id) {
+        setCurrentChatFileState(null)
+        await dbManager.saveSetting('currentChatId', null)
+        setCurrentlySelectedMessage(null)
+      }
+    } catch (error) {
+      console.error('Failed to delete chat file:', error)
+      throw error
+    }
+  }
+
+  const clearAllData = async (): Promise<void> => {
+    try {
+      await dbManager.clearAllChatFiles()
+      await dbManager.saveSetting('currentChatId', null)
+      
+      setChatFiles([])
+      setCurrentChatFileState(null)
+      setCurrentlySelectedMessage(null)
+      
+      console.log('All data cleared from IndexedDB')
+    } catch (error) {
+      console.error('Failed to clear all data:', error)
+      throw error
+    }
+  }
+
+  const getStorageInfo = async (): Promise<{ count: number; sizeEstimate: string }> => {
+    try {
+      return await dbManager.getStorageUsage()
+    } catch (error) {
+      console.error('Failed to get storage info:', error)
+      return { count: 0, sizeEstimate: '0MB' }
     }
   }
   //#endregion
@@ -139,10 +226,13 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         allMessages: currentChatFile?.messages || [],
         treeData: currentChatFile?.treeData || [],
         currentlySelectedMessage,
+        isLoading,
         addOrUpdateChatFile,
         setCurrentChatFile,
         setCurrentlySelectedMessage,
         deleteChatFile,
+        clearAllData,
+        getStorageInfo,
       }}
     >
       {children}

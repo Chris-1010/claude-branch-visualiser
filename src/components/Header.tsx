@@ -1,20 +1,23 @@
+//#region Imports
 import React from "react";
 import { useChatContext } from "../context/ChatContext";
+//#endregion
 
 const Header: React.FC = () => {
 	const { addOrUpdateChatFile } = useChatContext();
 
-	const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+	const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
 		if (file) {
 			const reader = new FileReader();
-			reader.onload = (e) => {
+			reader.onload = async (e) => {
 				try {
 					const data = JSON.parse(e.target?.result as string);
 					// Extract the chat_messages array from the conversation object
-					addOrUpdateChatFile(file.name, data.chat_messages || []);
+					await addOrUpdateChatFile(file.name, data.chat_messages || []);
 				} catch (error) {
 					console.error("Error parsing JSON:", error);
+					alert('Failed to parse JSON file. Check console for details.');
 				}
 			};
 			reader.readAsText(file);
