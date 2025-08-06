@@ -5,6 +5,7 @@ import DetailsPane from "./components/DetailsPane";
 import Search from "./components/Search";
 import type { ChatTreeRef } from './components/ChatTree';
 import { useRef } from "react";
+import Sidebar from "./components/Sidebar";
 
 function App() {
 	const chatTreeRef = useRef<ChatTreeRef>(null);
@@ -13,6 +14,7 @@ function App() {
 			<Header />
 			<Search chatTreeRef={chatTreeRef} />
 			<div className="content">
+				<Sidebar />
 				<ChatTree ref={chatTreeRef} />
 				<DetailsPane />
 			</div>
