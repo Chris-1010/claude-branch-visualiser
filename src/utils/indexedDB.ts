@@ -13,10 +13,6 @@ interface ChatFile {
   messages: any[]
   treeData?: any[]
 }
-
-interface DBChatFile extends ChatFile {
-  // IndexedDB version might have additional fields
-}
 //#endregion
 
 class IndexedDBManager {
@@ -53,7 +49,7 @@ class IndexedDBManager {
 
         // Create settings store
         if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
-          const settingsStore = db.createObjectStore(SETTINGS_STORE, { keyPath: 'key' })
+          db.createObjectStore(SETTINGS_STORE, { keyPath: 'key' })
           console.log('Created settings object store')
         }
       }

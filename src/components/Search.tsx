@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Search as SearchIcon, X } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
+import type { ChatTreeRef } from "./ChatTree";
 //#endregion
 
 interface SearchProps {

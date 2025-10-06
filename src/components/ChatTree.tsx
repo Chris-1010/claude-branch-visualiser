@@ -8,7 +8,7 @@ interface ChatTreeRef {
     scrollToMessage: (messageUuid: string) => void;
 }
 
-const ChatTree = forwardRef<ChatTreeRef>((props, ref) => {
+const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 	const { treeData, currentlySelectedMessage, setCurrentlySelectedMessage } = useChatContext();
 	const diagramRef = useRef<HTMLDivElement>(null);
 	const diagramInstanceRef = useRef<go.Diagram | null>(null);
@@ -66,7 +66,7 @@ const ChatTree = forwardRef<ChatTreeRef>((props, ref) => {
 		}).add(new go.Shape({ strokeWidth: 2, stroke: "#666" }));
 
 		// Handle selection changes without triggering scroll
-		myDiagram.addDiagramListener("ChangedSelection", (e) => {
+		myDiagram.addDiagramListener("ChangedSelection", (_) => {
 			const selectedNode = myDiagram.selection.first();
 			if (selectedNode && selectedNode.data) {
 				setCurrentlySelectedMessage(selectedNode.data.originalMessage);
