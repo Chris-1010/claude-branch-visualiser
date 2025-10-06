@@ -10,9 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/markdown-to-jsx": "^7.0.0",
     "gojs": "^3.0.24",
     "lucide-react": "^0.525.0",
-    "markdown-to-jsx": "^7.7.13",
+    "markdown-to-jsx": "^7.7.14",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

@@ -6,7 +6,7 @@ import type { ChatTreeRef } from "./ChatTree";
 //#endregion
 
 interface SearchProps {
-	chatTreeRef: React.RefObject<ChatTreeRef>;
+	chatTreeRef: React.RefObject<ChatTreeRef | null>;
 }
 
 interface SearchResult {
