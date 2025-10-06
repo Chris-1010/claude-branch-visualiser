@@ -4,16 +4,25 @@
 
 Claude.ai allows you to edit your messages, creating conversation branches from any point in your chat. This tool helps you visualize, search and navigate these branching conversations.
 
-**How to use**
-1. Download your conversation data (in JSON format) from Claude.ai using the network tab of the developer tools
-2. Upload the file using the file input at the top of the page
-3. Click any message to see the full conversation branch in the details pane
+### **How to download your conversation data from Claude.ai**
 
-**Features**
+1. Open browser developer tools
+2. Switch to network tab
+3. Reload page if needed
+4. Type 'tree' in the filter input field
+5. Click on the single matching file
+6. In this file's details pane, go to the Response tab
+7. `Ctrl + A`, `Ctrl + C` on the file's contents to copy all
+8. Paste this copied text into a file and name it (`.json` extension appended ideally)
+9. Upload this newly created file to this page
+10. View your chats in a neat diagram display
+11. Click any message to see the full chat in the details pane
+12. Search for text within chat messages using the search icon at the bottom left of the screen
+
+### **Features**
+
 - Interactive tree visualization of conversation branches
 - Expandable details pane showing complete message threads
 - Easy navigation through complex branching conversations
 - Search functionality to quickly find specific messages across all branches
 
-**Getting your data**
-Open your browser's developer tools on Claude.ai, go to the Network tab, and look for the API request that loads your conversation messages. Save the JSON response to upload here.
