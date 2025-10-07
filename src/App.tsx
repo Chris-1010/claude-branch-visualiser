@@ -3,7 +3,7 @@ import Header from "./components/Header";
 import ChatTree from "./components/ChatTree";
 import DetailsPane from "./components/DetailsPane";
 import Search from "./components/Search";
-import type { ChatTreeRef } from './components/ChatTree';
+import type { ChatTreeRef } from "./components/ChatTree";
 import { useRef } from "react";
 import Sidebar from "./components/Sidebar";
 

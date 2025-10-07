@@ -1,13 +1,24 @@
 //#region Imports
 import React, { useRef, useState, useEffect } from "react";
-import { Trash2, Upload, FileText, Clock, Eraser } from "lucide-react";
+import { Trash2, Upload, FileText, Clock, Eraser, CircleQuestionMark } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
 //#endregion
 
 const Sidebar: React.FC = () => {
 	//#region State and Refs
-	const { chatFiles, currentChatFile, setCurrentChatFile, addOrUpdateChatFile, deleteChatFile, clearAllData, getStorageInfo, isLoading, sidebarOpen } =
-		useChatContext();
+	const {
+		chatFiles,
+		currentChatFile,
+		setCurrentChatFile,
+		addOrUpdateChatFile,
+		deleteChatFile,
+		clearAllData,
+		getStorageInfo,
+		isLoading,
+		sidebarOpen,
+		showHelp,
+		setShowHelp,
+	} = useChatContext();
 
 	const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 	const [storageInfo, setStorageInfo] = useState<{ count: number; sizeEstimate: string }>({ count: 0, sizeEstimate: "0MB" });
@@ -158,7 +169,7 @@ const Sidebar: React.FC = () => {
 	}
 
 	return (
-		<div className={`sidebar${sidebarOpen ? ' active' : ''}`}>
+		<div className={`sidebar${sidebarOpen ? " active" : ""}`}>
 			<div className="sidebar-header">
 				<h2>Chat Files</h2>
 				<div className="sidebar-header-actions">
@@ -180,6 +191,7 @@ const Sidebar: React.FC = () => {
 						<FileText size={48} />
 						<p>No chat files loaded</p>
 						<p className="sidebar-empty-hint">Upload a file using the header to get started</p>
+						<CircleQuestionMark className="help" size={30} onClick={() => setShowHelp(!showHelp)} />
 					</div>
 				) : (
 					<>
@@ -240,6 +252,7 @@ const Sidebar: React.FC = () => {
 							<div className="sidebar-storage-info">
 								Storage: {storageInfo.sizeEstimate} • {storageInfo.count} file{storageInfo.count !== 1 ? "s" : ""}
 							</div>
+							<CircleQuestionMark className="help" size={30} onClick={() => setShowHelp(!showHelp)} />
 						</div>
 					</>
 				)}

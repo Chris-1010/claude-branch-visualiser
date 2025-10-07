@@ -2,6 +2,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as go from "gojs";
 import { useChatContext } from "../context/ChatContext";
+import Help from "./Help";
 //#endregion
 
 interface ChatTreeRef {
@@ -212,16 +213,19 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 	//#endregion
 
 	return (
-		<div className="chat-tree-container">
-			<div
-				ref={diagramRef}
-				style={{
-					width: "100%",
-					height: "100%",
-					backgroundColor: "#1a1a1a",
-				}}
-			/>
-		</div>
+		<>
+			<div className="chat-tree-container">
+				<div
+					ref={diagramRef}
+					style={{
+						width: "100%",
+						height: "100%",
+						backgroundColor: "#1a1a1a",
+					}}
+				/>
+			</div>
+			<Help />
+		</>
 	);
 });
 

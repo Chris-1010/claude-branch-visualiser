@@ -40,6 +40,7 @@ interface ChatContextType {
 	currentlySelectedMessage: MessageWithChildren | null;
 	sidebarOpen: boolean;
 	isLoading: boolean;
+	showHelp: boolean;
 	addOrUpdateChatFile: (fileName: string, messages: Message[]) => Promise<void>;
 	setCurrentChatFile: (chatFile: ChatFile | null) => Promise<void>;
 	setCurrentlySelectedMessage: (message: MessageWithChildren | null) => void;
@@ -48,6 +49,7 @@ interface ChatContextType {
 	getStorageInfo: () => Promise<{ count: number; sizeEstimate: string }>;
 	setSidebarOpen: (open: boolean) => void;
 	toggleSidebar: () => void;
+	setShowHelp: (shown: boolean) => void;
 }
 //#endregion
 
@@ -68,6 +70,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	const [currentlySelectedMessage, setCurrentlySelectedMessage] = useState<MessageWithChildren | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+	const [showHelp, setShowHelp] = useState<boolean>(false);
 	//#endregion
 
 	//#region Tree Building Logic
@@ -234,6 +237,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				currentlySelectedMessage,
 				isLoading,
 				sidebarOpen,
+				showHelp,
 				addOrUpdateChatFile,
 				setCurrentChatFile,
 				setCurrentlySelectedMessage,
@@ -242,6 +246,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				getStorageInfo,
 				setSidebarOpen,
 				toggleSidebar,
+				setShowHelp,
 			}}
 		>
 			{children}
