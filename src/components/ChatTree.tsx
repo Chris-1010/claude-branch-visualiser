@@ -5,13 +5,13 @@ import { useChatContext } from "../context/ChatContext";
 //#endregion
 
 interface ChatTreeRef {
-    scrollToMessage: (messageUuid: string) => void;
+	scrollToMessage: (messageUuid: string) => void;
 }
 
 const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 	const { treeData, currentlySelectedMessage, setCurrentlySelectedMessage } = useChatContext();
-	const diagramRef = useRef<HTMLDivElement>(null);
 	const diagramInstanceRef = useRef<go.Diagram | null>(null);
+	const diagramRef = useRef<HTMLDivElement>(null);
 
 	//#region GoJS Initialization
 	useEffect(() => {
@@ -83,8 +83,6 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 			// Override to do nothing - prevents automatic scrolling
 		};
 
-		
-
 		diagramInstanceRef.current = myDiagram;
 
 		return () => {
@@ -144,7 +142,11 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 
 	//#region Update Diagram
 	useEffect(() => {
-		if (!diagramInstanceRef.current || !treeData.length) return;
+		if (!diagramInstanceRef.current) return;
+		else if (!treeData || !treeData.length) {
+			diagramInstanceRef.current.model = new go.GraphLinksModel([], []);
+			return;
+		}
 
 		const { nodes, links } = convertTreeDataToGoJS(treeData);
 
@@ -195,20 +197,20 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 			};
 		}
 	}, []);
-	//#endregion
 
 	useImperativeHandle(ref, () => ({
-        scrollToMessage: (messageUuid: string) => {
-            if (diagramInstanceRef.current) {
-                const node = diagramInstanceRef.current.findNodeForKey(messageUuid);
-                if (node) {
-                    diagramInstanceRef.current.select(node);
-                    diagramInstanceRef.current.centerRect(node.actualBounds);
-                }
-            }
-        }
+		scrollToMessage: (messageUuid: string) => {
+			if (diagramInstanceRef.current) {
+				const node = diagramInstanceRef.current.findNodeForKey(messageUuid);
+				if (node) {
+					diagramInstanceRef.current.select(node);
+					diagramInstanceRef.current.centerRect(node.actualBounds);
+				}
+			}
+		},
 	}));
-	
+	//#endregion
+
 	return (
 		<div className="chat-tree-container">
 			<div
