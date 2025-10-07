@@ -21,7 +21,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
 	const [selectedIndex, setSelectedIndex] = useState(-1);
-	const { allMessages, setCurrentlySelectedMessage } = useChatContext();
+	const { allMessages, setCurrentlySelectedMessage, setSidebarOpen } = useChatContext();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	//#endregion
@@ -71,7 +71,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 	}, [searchQuery, allMessages]);
 	//#endregion
 
-	//#region Keyboard and Click Outside Handlers
+	//#region Keyboard Shortcut and Click Outside Handlers
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === "s" || e.key === "S") {
@@ -80,6 +80,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 					e.preventDefault();
 					if (!isOpen && allMessages.length > 0) {
 						setIsOpen(true);
+						setSidebarOpen(false);
 						setTimeout(() => inputRef.current?.focus(), 100);
 					}
 				}
@@ -108,6 +109,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 		if (newState) {
 			setTimeout(() => inputRef.current?.focus(), 100);
 			setCurrentlySelectedMessage(null);
+			setSidebarOpen(false);
 			setIsOpen(true);
 		} else {
 			handleClose();
@@ -130,8 +132,8 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 
 		// Scroll to the node in the GoJS diagram
 		if (chatTreeRef.current) {
-            chatTreeRef.current.scrollToMessage(result.message.uuid);
-        }
+			chatTreeRef.current.scrollToMessage(result.message.uuid);
+		}
 
 		handleClose();
 	};
