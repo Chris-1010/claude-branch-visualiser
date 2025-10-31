@@ -2,7 +2,20 @@ import { useChatContext } from "../context/ChatContext";
 import { XSquareIcon } from "lucide-react";
 
 const Help = () => {
-	const { showHelp, setShowHelp } = useChatContext();
+	const { showHelp, setShowHelp, setFileserverPassword } = useChatContext();
+
+	//#region Password Input Handler
+	const handlePasswordSetup = async () => {
+		const password = prompt("Enter fileserver password:");
+
+		if (password) {
+			await setFileserverPassword(password);
+			alert("Password saved! You can now use the sync button.");
+			setShowHelp(false);
+		}
+	};
+	//#endregion
+
 	return (
 		<section className={`help${showHelp ? " active" : ""}`}>
 			<XSquareIcon className="close" color="red" size={60} onClick={() => setShowHelp(false)} />
@@ -46,10 +59,22 @@ const Help = () => {
 						<strong>Click any message</strong> to see the full chat in the details pane
 					</li>
 					<li>
-						<strong>Search</strong> <small>(Keyboard Shortcut <b>S</b>)</small> for text within chat messages using the search icon at the bottom left of
-						the screen
+						<strong>Search</strong>{" "}
+						<small>
+							(Keyboard Shortcut <b>S</b>)
+						</small>{" "}
+						for text within chat messages using the search icon at the bottom left of the screen
 					</li>
 				</ol>
+				<a
+					href="#"
+					onClick={(e) => {
+						e.preventDefault();
+						handlePasswordSetup();
+					}}
+				>
+					Know the password for the fileserver?
+				</a>
 			</div>
 		</section>
 	);

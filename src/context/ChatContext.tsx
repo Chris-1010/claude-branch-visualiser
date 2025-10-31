@@ -41,6 +41,7 @@ interface ChatContextType {
 	sidebarOpen: boolean;
 	isLoading: boolean;
 	showHelp: boolean;
+	fileserverPassword: string | null;
 	addOrUpdateChatFile: (fileName: string, messages: Message[]) => Promise<void>;
 	setCurrentChatFile: (chatFile: ChatFile | null) => Promise<void>;
 	setCurrentlySelectedMessage: (message: MessageWithChildren | null) => void;
@@ -50,6 +51,7 @@ interface ChatContextType {
 	setSidebarOpen: (open: boolean) => void;
 	toggleSidebar: () => void;
 	setShowHelp: (shown: boolean) => void;
+	setFileserverPassword: (password: string | null) => Promise<void>;
 }
 //#endregion
 
@@ -71,6 +73,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	const [isLoading, setIsLoading] = useState(true);
 	const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 	const [showHelp, setShowHelp] = useState<boolean>(false);
+	const [fileserverPassword, setFileserverPasswordState] = useState<string | null>(null);
 	//#endregion
 
 	//#region Tree Building Logic
@@ -123,6 +126,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 					console.log(`Current chat file ID: ${currentChatId}`);
 					if (currentFile) setCurrentChatFileState(currentFile);
 				} else setSidebarOpen(true);
+
+				// Load fileserver password
+				const savedPassword = await dbManager.getPassword();
+				if (savedPassword) {
+					setFileserverPasswordState(savedPassword);
+					console.log("Fileserver password loaded from storage");
+				}
 
 				console.log(`Loaded ${processedChatFiles.length} chat files from IndexedDB`);
 			} catch (error) {
@@ -223,6 +233,24 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	};
 	//#endregion
 
+	//#region Password Management
+	const setFileserverPassword = async (password: string | null): Promise<void> => {
+		try {
+			if (password) {
+				await dbManager.savePassword(password);
+				setFileserverPasswordState(password);
+				console.log("Fileserver password saved");
+			} else {
+				await dbManager.clearPassword();
+				setFileserverPasswordState(null);
+				console.log("Fileserver password cleared");
+			}
+		} catch (error) {
+			console.error("Failed to save/clear password:", error);
+		}
+	};
+	//#endregion
+
 	const toggleSidebar = () => {
 		setSidebarOpen((prev) => !prev);
 	};
@@ -238,6 +266,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				isLoading,
 				sidebarOpen,
 				showHelp,
+				fileserverPassword,
 				addOrUpdateChatFile,
 				setCurrentChatFile,
 				setCurrentlySelectedMessage,
@@ -247,6 +276,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				setSidebarOpen,
 				toggleSidebar,
 				setShowHelp,
+				setFileserverPassword,
 			}}
 		>
 			{children}

@@ -476,6 +476,28 @@ footer {
 	color: #f44336;
 }
 
+.sidebar-header-btn.sync:hover {
+	color: #4caf50;
+}
+
+.sidebar-header-btn.spinning {
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+.sidebar-header-btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
 .sidebar-header h2 {
 	margin: 0;
 	font-size: 18px;
@@ -776,6 +798,21 @@ section.help > div > ol > li {
 	text-align: left;
 	font-size: 1.5rem;
 	border-bottom: 2px solid;
+}
+
+section.help > div > a {
+	color: #ff9100;
+	text-decoration: none;
+	font-weight: 600;
+	margin-top: 20px;
+	display: inline-block;
+	cursor: pointer;
+	transition: 0.3s;
+}
+
+section.help > div > a:hover {
+	color: #ffb347;
+	text-decoration: underline;
 }
 
 /* #endregion */

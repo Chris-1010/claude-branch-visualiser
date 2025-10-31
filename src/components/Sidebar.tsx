@@ -1,6 +1,6 @@
 //#region Imports
 import React, { useRef, useState, useEffect } from "react";
-import { Trash2, Upload, FileText, Clock, Eraser, CircleQuestionMark } from "lucide-react";
+import { Trash2, Upload, FileText, Clock, Eraser, CircleQuestionMark, RefreshCw } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
 //#endregion
 
@@ -18,10 +18,13 @@ const Sidebar: React.FC = () => {
 		sidebarOpen,
 		showHelp,
 		setShowHelp,
+		fileserverPassword,
+		setFileserverPassword,
 	} = useChatContext();
 
 	const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 	const [storageInfo, setStorageInfo] = useState<{ count: number; sizeEstimate: string }>({ count: 0, sizeEstimate: "0MB" });
+	const [isSyncing, setIsSyncing] = useState(false);
 	//#endregion
 
 	//#region Load Storage Info
@@ -79,6 +82,124 @@ const Sidebar: React.FC = () => {
 		const inputRef = fileInputRefs.current[chatFileId];
 		if (inputRef) {
 			inputRef.value = "";
+		}
+	};
+	//#endregion
+
+	//#region Sync from Fileserver
+	const syncFromFileserver = async () => {
+		if (!fileserverPassword) {
+			alert("Fileserver password not set. Open the help section to set it up.");
+			return;
+		}
+
+		setIsSyncing(true);
+		try {
+			// Fetch file list from fileserver
+			const response = await fetch(
+				`https://files.server-chris.com/projects/claude-branch-visualiser?ls&pw=${encodeURIComponent(fileserverPassword)}`
+			);
+			if (!response.ok) {
+				if (response.status === 401 || response.status === 403) {
+					alert("Invalid password. Please set the correct password in the help section.");
+					await setFileserverPassword(null);
+				}
+				throw new Error(`Failed to fetch file list: ${response.status}`);
+			}
+
+			const data = await response.json();
+			const serverFiles = data.files || [];
+
+			console.log(`[Sync] Found ${serverFiles.length} files on fileserver`);
+
+			// Create a map of existing files by name for quick lookup
+			const existingFilesMap = new Map(chatFiles.map((file) => [file.name, file]));
+
+			let downloadedCount = 0;
+			let updatedCount = 0;
+			let skippedCount = 0;
+
+			// Process each file from the server
+			for (const serverFile of serverFiles) {
+				const fileName = serverFile.href;
+				const serverTimestamp = serverFile.tags[".up_at"];
+
+				// Check if file extension is json
+				if (serverFile.ext !== "json") {
+					console.log(`[Sync] Skipping non-JSON file: ${fileName}`);
+					continue;
+				}
+
+				const existingFile = existingFilesMap.get(fileName);
+
+				// Determine if need to download
+				let shouldDownload = false;
+				if (!existingFile) {
+					console.log(`[Sync] New file detected: ${fileName}`);
+					shouldDownload = true;
+				} else {
+					// Compare timestamps
+					const existingTimestamp = new Date(existingFile.lastUpdated).getTime() / 1000;
+					if (serverTimestamp > existingTimestamp) {
+						console.log(`[Sync] File has updates: ${fileName} (server: ${serverTimestamp}, local: ${existingTimestamp})`);
+						shouldDownload = true;
+					} else {
+						console.log(`[Sync] File up to date: ${fileName}`);
+						skippedCount++;
+					}
+				}
+
+				if (shouldDownload) {
+					try {
+						// Download the file
+						const fileUrl = `https://files.server-chris.com/projects/claude-branch-visualiser/${encodeURIComponent(
+							fileName
+						)}?pw=${encodeURIComponent(fileserverPassword)}&dl`;
+
+						const fileResponse = await fetch(fileUrl);
+
+						if (!fileResponse.ok) {
+							console.error(`[Sync] Failed to download ${fileName}: ${fileResponse.status}`);
+							continue;
+						}
+
+						const fileData = await fileResponse.json();
+
+						// Validate it has chat_messages
+						if (!fileData.chat_messages) {
+							console.warn(`[Sync] File ${fileName} missing chat_messages, skipping`);
+							continue;
+						}
+
+						// Add or update in local storage
+						await addOrUpdateChatFile(fileName, fileData.chat_messages);
+
+						if (existingFile) {
+							updatedCount++;
+							console.log(`[Sync] ✓ Updated: ${fileName}`);
+						} else {
+							downloadedCount++;
+							console.log(`[Sync] ✓ Downloaded: ${fileName}`);
+						}
+					} catch (error) {
+						console.error(`[Sync] Error processing ${fileName}:`, error);
+					}
+				}
+			}
+
+			console.log(`[Sync] Complete - Downloaded: ${downloadedCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`);
+
+			// Show summary notification
+			if (downloadedCount > 0 || updatedCount > 0) {
+				alert(`Sync complete!\nNew: ${downloadedCount}\nUpdated: ${updatedCount}\nSkipped: ${skippedCount}`);
+			} else {
+				alert(`All files are up to date (${skippedCount} files checked)`);
+			}
+		} catch (error) {
+			console.error("[Sync] Failed:", error);
+			alert("Sync failed. Check console for details.");
+		} finally {
+			setIsSyncing(false);
 		}
 	};
 	//#endregion
@@ -173,7 +294,10 @@ const Sidebar: React.FC = () => {
 			<div className="sidebar-header">
 				<h2>Chat Files</h2>
 				<div className="sidebar-header-actions">
-					<button className="sidebar-header-btn" onClick={handleClearAllData} title="Clear all data">
+					<button className="sidebar-header-btn sync" onClick={syncFromFileserver} disabled={isSyncing} title="Sync from fileserver">
+						<RefreshCw size={16} className={isSyncing ? "spinning" : ""} />
+					</button>
+					<button className="sidebar-header-btn erase" onClick={handleClearAllData} title="Clear all data">
 						<Eraser size={16} />
 					</button>
 				</div>
@@ -190,7 +314,7 @@ const Sidebar: React.FC = () => {
 					<div className="sidebar-empty">
 						<FileText size={48} />
 						<p>No chat files loaded</p>
-						<p className="sidebar-empty-hint">Upload a file using the header to get started</p>
+						<p className="sidebar-empty-hint">Upload a file or sync from fileserver to get started</p>
 						<CircleQuestionMark className="help" size={30} onClick={() => setShowHelp(!showHelp)} />
 					</div>
 				) : (
