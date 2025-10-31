@@ -40,7 +40,7 @@ input {
 
 /* #endregion */
 
-/* #region Header */
+/* #region Main Page Elements */
 
 body {
 	height: 100vh;
@@ -63,8 +63,11 @@ body {
 	position: relative;
 }
 
+
+/* #region Header */
 header {
 	grid-area: 1/1/2/2;
+	position: relative;
 	display: flex;
 	width: 100vw;
 	height: 10vh;
@@ -87,6 +90,37 @@ header > svg.sidebar-icon.active {
 	transition: transform 0.3s ease;
 }
 
+header > div.current-chat-file {
+	position: absolute;
+	right: 5vw;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	height: 60%;
+	max-width: 22vw;
+	font-weight: 700;
+	background: #2d2d2d;
+	color: white;
+	padding: 5px 25px;
+	border-radius: 1rem;
+}
+
+div.current-chat-file > span {
+    font-weight: 300;
+    font-size: 0.75rem;
+}
+
+header > div.current-chat-file > h2 {
+    font-size: 1.25rem;
+    margin: 0;
+    width: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* #endregion */
+
 div.content {
 	grid-area: 1/1/3/2;
 	display: flex;
@@ -98,11 +132,6 @@ div.content {
 	transition: width 0.3s ease;
 	overflow: hidden;
 }
-
-footer {
-}
-
-/* #endregion */
 
 /* #region ChatTree */
 
@@ -463,7 +492,8 @@ footer {
 	font-size: 11px;
 }
 
-.search-no-results, .search-invalid-query {
+.search-no-results,
+.search-invalid-query {
 	padding: 20px;
 	text-align: center;
 	color: #999;
