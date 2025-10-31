@@ -18,17 +18,19 @@ interface SearchResult {
 const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 	//#region State
 	const [isOpen, setIsOpen] = useState(false);
+	const [searchMode, setSearchMode] = useState<"current" | "all">("current");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
 	const [selectedIndex, setSelectedIndex] = useState(-1);
-	const { allMessages, setCurrentlySelectedMessage, setSidebarOpen } = useChatContext();
+	const { allMessages, chatFiles, currentChatFile, setCurrentChatFile, setCurrentlySelectedMessage, setSidebarOpen } = useChatContext();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	//#endregion
 
 	//#region Search Logic
 	const performSearch = (query: string) => {
-		if (!query.trim() || !allMessages.length) {
+		// No query (or too short), or no messages
+		if (query.trim().length < 3 || !allMessages.length) {
 			setSearchResults([]);
 			return;
 		}
@@ -36,31 +38,61 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 		const results: SearchResult[] = [];
 		const searchTerm = query.toLowerCase();
 
-		allMessages.forEach((message) => {
-			// Get the text content from the message
-			const messageText = message.content?.find((c) => c.type === "text")?.text || message.text || "";
+		if (searchMode === "current") {
+			// Default behaviour - search only current file
+			if (!allMessages.length) return;
 
-			if (messageText.toLowerCase().includes(searchTerm)) {
-				// Find the position of the match for context
-				const matchIndex = messageText.toLowerCase().indexOf(searchTerm);
-				const contextStart = Math.max(0, matchIndex - 50);
-				const contextEnd = Math.min(messageText.length, matchIndex + searchTerm.length + 50);
+			allMessages.forEach((message) => {
+				const messageText = message.content?.find((c) => c.type === "text")?.text || message.text || "";
 
-				let context = messageText.substring(contextStart, contextEnd);
-				if (contextStart > 0) context = "..." + context;
-				if (contextEnd < messageText.length) context = context + "...";
+				if (messageText.toLowerCase().includes(searchTerm)) {
+					const matchIndex = messageText.toLowerCase().indexOf(searchTerm);
+					const contextStart = Math.max(0, matchIndex - 50);
+					const contextEnd = Math.min(messageText.length, matchIndex + searchTerm.length + 50);
 
-				results.push({
-					message,
-					matchText: messageText.substring(matchIndex, matchIndex + searchTerm.length),
-					context,
+					let context = messageText.substring(contextStart, contextEnd);
+					if (contextStart > 0) context = "..." + context;
+					if (contextEnd < messageText.length) context = context + "...";
+
+					results.push({
+						message,
+						matchText: messageText.substring(matchIndex, matchIndex + searchTerm.length),
+						context,
+					});
+				}
+			});
+		} else {
+			// Search across all chat files - potentially expensive
+			chatFiles.forEach((chatFile) => {
+				chatFile.messages.forEach((message) => {
+					const messageText = message.content?.find((c: any) => c.type === "text")?.text || message.text || "";
+
+					if (messageText.toLowerCase().includes(searchTerm)) {
+						const matchIndex = messageText.toLowerCase().indexOf(searchTerm);
+						const contextStart = Math.max(0, matchIndex - 50);
+						const contextEnd = Math.min(messageText.length, matchIndex + searchTerm.length + 50);
+
+						let context = messageText.substring(contextStart, contextEnd);
+						if (contextStart > 0) context = "..." + context;
+						if (contextEnd < messageText.length) context = context + "...";
+
+						results.push({
+							message: { ...message, _chatFileName: chatFile.name }, // Add file name for display
+							matchText: messageText.substring(matchIndex, matchIndex + searchTerm.length),
+							context,
+						});
+					}
 				});
-			}
-		});
+			});
+		}
 
 		setSearchResults(results);
 		setSelectedIndex(-1);
 	};
+
+	useEffect(() => {
+		performSearch(searchQuery);
+	}, [searchMode]);
 
 	useEffect(() => {
 		const debounceTimer = setTimeout(() => {
@@ -79,9 +111,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 				if (document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
 					e.preventDefault();
 					if (!isOpen && allMessages.length > 0) {
-						setIsOpen(true);
-						setSidebarOpen(false);
-						setTimeout(() => inputRef.current?.focus(), 100);
+						openSearch();
 					}
 				}
 			}
@@ -107,13 +137,17 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 	const handleSearchClick = () => {
 		let newState = !isOpen;
 		if (newState) {
-			setTimeout(() => inputRef.current?.focus(), 100);
-			setCurrentlySelectedMessage(null);
-			setSidebarOpen(false);
-			setIsOpen(true);
+			openSearch();
 		} else {
 			handleClose();
 		}
+	};
+
+	const openSearch = () => {
+		setTimeout(() => inputRef.current?.focus(), 100);
+		setCurrentlySelectedMessage(null);
+		setSidebarOpen(false);
+		setIsOpen(true);
 	};
 
 	const handleClose = () => {
@@ -126,13 +160,33 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 		}
 	};
 
-	const handleResultClick = (result: SearchResult) => {
-		// Find the message in the tree structure
-		setCurrentlySelectedMessage(result.message);
+	const handleResultClick = async (result: SearchResult) => {
+		if (searchMode === "all") {
+			// Switch to the correct chat file first
+			const fileName = (result.message as any)._chatFileName;
+			const targetChatFile = chatFiles.find((cf) => cf.name === fileName);
 
-		// Scroll to the node in the GoJS diagram
-		if (chatTreeRef.current) {
-			chatTreeRef.current.scrollToMessage(result.message.uuid);
+			if (targetChatFile && targetChatFile.id !== currentChatFile?.id) {
+				await setCurrentChatFile(targetChatFile);
+				// Small delay to let the tree render
+				setTimeout(() => {
+					setCurrentlySelectedMessage(result.message);
+					if (chatTreeRef.current) {
+						chatTreeRef.current.scrollToMessage(result.message.uuid);
+					}
+				}, 100);
+			} else {
+				setCurrentlySelectedMessage(result.message);
+				if (chatTreeRef.current) {
+					chatTreeRef.current.scrollToMessage(result.message.uuid);
+				}
+			}
+		} else {
+			// Original behaviour
+			setCurrentlySelectedMessage(result.message);
+			if (chatTreeRef.current) {
+				chatTreeRef.current.scrollToMessage(result.message.uuid);
+			}
 		}
 
 		handleClose();
@@ -158,6 +212,15 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 			{allMessages.length > 0 && <SearchIcon className={`search-button${isOpen ? " active" : ""}`} size={60} onClick={handleSearchClick} />}
 			<div className="search-container">
 				<div className="search-dropdown" ref={dropdownRef}>
+					<div className="search-tabs">
+						<button className={`search-tab ${searchMode === "current" ? "active" : ""}`} onClick={() => setSearchMode("current")}>
+							Current Chat
+						</button>
+						<button className={`search-tab ${searchMode === "all" ? "active" : ""}`} onClick={() => setSearchMode("all")}>
+							All Chats
+						</button>
+					</div>
+
 					<div className="search-input-container">
 						<input
 							ref={inputRef}
@@ -181,7 +244,12 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 									className={`search-result ${index === selectedIndex ? "selected" : ""}`}
 									onClick={() => handleResultClick(result)}
 								>
-									<div className="search-result-sender">{result.message.sender === "human" ? "You" : "Claude"}</div>
+									<div className="search-result-sender">
+										<h3 className={result.message.sender.toLowerCase()}>{result.message.sender === "human" ? "You" : "Claude"}</h3>
+										{searchMode === "all" && (result.message as any)._chatFileName && (
+											<span className="search-result-file">{(result.message as any)._chatFileName}</span>
+										)}
+									</div>
 									<div className="search-result-context">{result.context}</div>
 									<div className="search-result-date">{new Date(result.message.created_at).toLocaleDateString()}</div>
 								</div>
@@ -189,7 +257,11 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 						</div>
 					)}
 
-					{searchQuery && searchResults.length === 0 && <div className="search-no-results">No messages found matching "{searchQuery}"</div>}
+					{searchQuery.length >= 3 && searchResults.length === 0 ? (
+						<div className="search-no-results">No messages found matching "{searchQuery}"</div>
+					) : searchQuery.length < 3 ? (
+						<div className="search-invalid-query">Enter at least 3 characters to search</div>
+					) : null}
 				</div>
 			</div>
 		</>
