@@ -294,9 +294,11 @@ const Sidebar: React.FC = () => {
 			<div className="sidebar-header">
 				<h2>Chat Files</h2>
 				<div className="sidebar-header-actions">
-					<button className="sidebar-header-btn sync" onClick={syncFromFileserver} disabled={isSyncing} title="Sync from fileserver">
-						<RefreshCw size={16} className={isSyncing ? "spinning" : ""} />
-					</button>
+					{fileserverPassword && (
+						<button className="sidebar-header-btn sync" onClick={syncFromFileserver} disabled={isSyncing} title="Sync from fileserver">
+							<RefreshCw size={16} className={isSyncing ? "spinning" : ""} />
+						</button>
+					)}
 					<button className="sidebar-header-btn erase" onClick={handleClearAllData} title="Clear all data">
 						<Eraser size={16} />
 					</button>

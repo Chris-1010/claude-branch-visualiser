@@ -480,8 +480,9 @@ footer {
 	color: #4caf50;
 }
 
-.sidebar-header-btn.spinning {
+.sidebar-header-btn > .spinning {
 	animation: spin 1s linear infinite;
+	color: limegreen;
 }
 
 @keyframes spin {
