@@ -63,7 +63,7 @@ body {
 	position: relative;
 }
 
-/* #region Header */
+/* #region # Header */
 header {
 	grid-area: 1/1/2/2;
 	position: relative;
@@ -130,7 +130,6 @@ header > div.current-chat-file > h2 {
 	overflow: hidden;
 }
 
-
 /* #endregion */
 
 div.content {
@@ -145,7 +144,9 @@ div.content {
 	overflow: hidden;
 }
 
-/* #region ChatTree */
+/*#endregion Main Page Elements */
+
+/* #region # ChatTree */
 
 .chat-tree-container {
 	flex-grow: 1;
@@ -162,7 +163,7 @@ div.content {
 
 /* #endregion */
 
-/* #region DetailsPane */
+/* #region # DetailsPane */
 
 .details-pane {
 	position: absolute;
@@ -182,7 +183,8 @@ div.content {
 	right: 0;
 }
 
-.details-pane > div.branch-path {
+/*#region ## BranchPath */
+.details-pane > div.message-branch-path {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
@@ -192,11 +194,12 @@ div.content {
 	overflow: visible;
 }
 
-div.branch-path > strong {
+div.message-branch-path > strong {
 	cursor: pointer;
 }
 
-div.branch-path > div {
+/*#region ### BranchPath > Branches */
+div.message-branch-path > div.branches {
 	display: flex;
 	justify-content: start;
 	align-items: center;
@@ -204,7 +207,7 @@ div.branch-path > div {
 	gap: 6px;
 }
 
-div.branch-path > div > span {
+div.branches > span {
 	background: #444;
 	padding: 2px 6px;
 	border-radius: 5px;
@@ -214,32 +217,51 @@ div.branch-path > div > span {
 	cursor: default;
 }
 
-div.branch-path > div > span.branch-number.branched {
-    font-size: 20px;
-    background: crimson;
-    font-weight: 700;
+div.branches > span.branch-number.branched {
+	font-size: 20px;
+	background: crimson;
+	font-weight: 700;
+}
+/*#endregion BranchPath > Branches */
+
+/*#endregion BranchPath */
+
+/*#region ## CreatedAt */
+.details-pane > div.message-created-at {
+	display: flex;
+	justify-content: space-evenly;
+	padding: 10px;
+	margin-top: 10px;
 }
 
-.details-pane > div {
+div.message-created-at > span {
+	display: flex;
+	flex-direction: column;
+}
+
+div.message-created-at > span > small {
+	font-size: 12px;
+	color: #ccc;
+}
+
+/*#endregion ## CreatedAt */
+
+/*#region ## Content */
+.details-pane > div.message-content {
+	padding: 10px;
+	margin-top: 10px;
+	background-color: #2020209c;
 	flex-grow: 1;
 	overflow: auto;
 }
 
-.message-content {
-	margin-top: 10px;
-	padding: 10px;
+/*#region ### MessageContent > MessageContentParsed */
+.message-content > div.message-content-parsed {
 	background: #333;
 	border-radius: 5px;
 	white-space: break-spaces;
-	overflow: auto;
+	text-align: left;
 	height: 100%;
-}
-
-/* #endregion */
-
-/* #region Message Content Styling */
-
-.message-content-parsed {
 	line-height: 1.6;
 }
 
@@ -355,11 +377,12 @@ div.branch-path > div > span.branch-number.branched {
 	font-size: 0.9em;
 	border-radius: 3px;
 }
+/*#endregion ### MessageContent > MessageContentParsed */
+/* #endregion ## Content */
 
-/* #endregion */
+/*#endregion # DetailsPane */
 
-/* #region Search */
-
+/* #region # Search */
 .search-container {
 	position: absolute;
 	width: 100%;
@@ -551,7 +574,7 @@ div.branch-path > div > span.branch-number.branched {
 }
 /* #endregion */
 
-/* #region Sidebar */
+/* #region # Sidebar */
 .sidebar {
 	width: 0px;
 	transform: translate(-300px);
@@ -823,7 +846,7 @@ div.file-upload > label:active {
 
 /* #endregion */
 
-/* #region Help Section */
+/* #region # Help Section */
 
 section.help {
 	display: flex;

@@ -263,19 +263,39 @@ const Sidebar: React.FC = () => {
 		}
 	};
 
-	const formatLastUpdatedTimeAgo = (dateString: string) => {
-		const date = new Date(dateString);
-		const now = new Date();
-		const diffMs = now.getTime() - date.getTime();
-		const diffMins = Math.floor(diffMs / (1000 * 60));
-		const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+	const getRelativeTimeDescription = (dateString: string): string => {
+		try {
+			const date = new Date(dateString);
+			if (isNaN(date.getTime())) return dateString;
 
-		if (diffMins < 1) return "Just now";
-		if (diffMins < 60) return `${diffMins}m ago`;
-		if (diffHours < 24) return `${diffHours}h ago`;
-		if (diffDays < 7) return `${diffDays}d ago`;
-		return date.toLocaleDateString();
+			const currentTime = Date.now();
+			const targetTime = date.getTime();
+			const timeDiff = currentTime - targetTime;
+
+			const minutes = Math.floor(timeDiff / (1000 * 60));
+			const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+			const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+			const weeks = Math.floor(days / 7);
+			const months = Math.floor(days / 30);
+			const years = Math.floor(days / 365);
+
+			if (minutes < 60) {
+				return minutes <= 1 ? "1 minute ago" : `${minutes} minutes ago`;
+			} else if (hours < 24) {
+				return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
+			} else if (days < 7) {
+				return days === 1 ? "1 day ago" : `${days} days ago`;
+			} else if (weeks < 4) {
+				return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+			} else if (months < 12) {
+				return months === 1 ? "1 month ago" : `${months} months ago`;
+			} else {
+				return years === 1 ? "1 year ago" : `${years} years ago`;
+			}
+		} catch (error) {
+			console.error("Error calculating relative time:", error);
+			return dateString;
+		}
 	};
 	//#endregion
 
@@ -337,7 +357,7 @@ const Sidebar: React.FC = () => {
 								<div className="sidebar-item-info">
 									<div className="sidebar-item-updated">
 										<Clock size={12} />
-										<span title={formatTimestamp(chatFile.lastUpdated)}>Updated {formatLastUpdatedTimeAgo(chatFile.lastUpdated)}</span>
+										<span title={formatTimestamp(chatFile.lastUpdated)}>Updated {getRelativeTimeDescription(chatFile.lastUpdated)}</span>
 									</div>
 									<div className="sidebar-item-stats">{chatFile.messages.length} messages</div>
 								</div>
