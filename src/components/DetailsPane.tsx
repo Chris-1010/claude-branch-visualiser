@@ -12,14 +12,31 @@ const DetailsPane: React.FC = () => {
 	const messageText =
 		currentlySelectedMessage.content?.find((c) => c.type === "text")?.text || currentlySelectedMessage.text || "No text content";
 
+	const branchPath = (currentlySelectedMessage as any).branchPath || {};
+	const pathKeys = Object.keys(branchPath);
+
 	return (
 		<div className="details-pane active">
 			<h3>Message Details</h3>
+
+			{pathKeys.length > 0 && (
+				<div className="branch-path">
+					<strong>Branch</strong>
+					<div>
+						{pathKeys.map((key) => {
+							const { position, hasSiblings } = branchPath[key];
+							return (
+								<span key={key} className={hasSiblings ? "branch-number branched" : "branch-number"}>
+									{position}
+								</span>
+							);
+						})}
+					</div>
+				</div>
+			)}
+
 			<p>
 				<strong>Created:</strong> {new Date(currentlySelectedMessage.created_at).toLocaleString()}
-			</p>
-			<p>
-				<strong>Index:</strong> {currentlySelectedMessage.index}
 			</p>
 			<div>
 				<strong>Content:</strong>

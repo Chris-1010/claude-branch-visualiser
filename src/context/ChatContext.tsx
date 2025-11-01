@@ -15,7 +15,6 @@ interface Message {
 	text: string;
 	content: MessageContent[];
 	sender: string;
-	index: number;
 	created_at: string;
 	updated_at: string;
 	truncated: boolean;
@@ -24,27 +23,24 @@ interface Message {
 	files: any[];
 	files_v2: any[];
 	sync_sources: any[];
-	parent_message_uuid?: string;
-	children?: Message[];
-}
-
-interface MessageWithChildren extends Message {
-	children: Message[];
+	parent_message_uuid: string;
+	children: Message[] | null;
+	branchPath?: Record<number, { position: number; hasSiblings: boolean }>;
 }
 
 interface ChatContextType {
 	chatFiles: ChatFile[];
 	currentChatFile: ChatFile | null;
 	allMessages: Message[];
-	treeData: MessageWithChildren[];
-	currentlySelectedMessage: MessageWithChildren | null;
+	treeData: Message[];
+	currentlySelectedMessage: Message | null;
 	sidebarOpen: boolean;
 	isLoading: boolean;
 	showHelp: boolean;
 	fileserverPassword: string | null;
 	addOrUpdateChatFile: (fileName: string, messages: Message[]) => Promise<void>;
 	setCurrentChatFile: (chatFile: ChatFile | null) => Promise<void>;
-	setCurrentlySelectedMessage: (message: MessageWithChildren | null) => void;
+	setCurrentlySelectedMessage: (message: Message | null) => void;
 	deleteChatFile: (id: string) => Promise<void>;
 	clearAllData: () => Promise<void>;
 	getStorageInfo: () => Promise<{ count: number; sizeEstimate: string }>;
@@ -69,7 +65,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	//#region State
 	const [chatFiles, setChatFiles] = useState<ChatFile[]>([]);
 	const [currentChatFile, setCurrentChatFileState] = useState<ChatFile | null>(null);
-	const [currentlySelectedMessage, setCurrentlySelectedMessage] = useState<MessageWithChildren | null>(null);
+	const [currentlySelectedMessage, setCurrentlySelectedMessage] = useState<Message | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 	const [showHelp, setShowHelp] = useState<boolean>(false);
@@ -77,29 +73,67 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	//#endregion
 
 	//#region Tree Building Logic
-	const buildTree = (messages: Message[]): MessageWithChildren[] => {
-		const messageMap = new Map<string, MessageWithChildren>();
-		const roots: MessageWithChildren[] = [];
-
-		// Create lookup map with children array
-		messages.forEach((msg) => {
-			messageMap.set(msg.uuid, { ...msg, children: [] });
-		});
+	const buildTree = (messages: Message[]): Message[] => {
+		const messageMap = new Map<string, Message>();
+		const roots: Message[] = []; // Root messages
 
 		// Build parent-child relationships
 		messages.forEach((msg) => {
+			// Create lookup map with children array - parent to child mapping
+			messageMap.set(msg.uuid, { ...msg, children: [] });
+
 			if (msg.parent_message_uuid && messageMap.has(msg.parent_message_uuid)) {
 				const parent = messageMap.get(msg.parent_message_uuid)!;
 				const child = messageMap.get(msg.uuid)!;
-				parent.children.push(child);
+				parent.children?.push(child);
 			} else {
 				const root = messageMap.get(msg.uuid)!;
 				roots.push(root);
 			}
 		});
 
+		//#region Calculate Branch Paths
+		// Recursive function to assign branch paths
+		const assignBranchPaths = (node: Message, parentPath: Record<number, { position: number; hasSiblings: boolean }> = {}) => {
+			// Determine this node's position among its siblings
+			let position = 1;
+			let hasSiblings = false;
+
+			const parent = messageMap.get(node.parent_message_uuid);
+			if (parent) {
+				if (!parent.children) return;
+				position = parent.children.findIndex((child) => child.uuid === node.uuid) + 1;
+				hasSiblings = parent.children.length > 1;
+			} else {
+				// Root node, assign position based on rootCounter
+				position = roots.findIndex((root) => root.uuid === node.uuid) + 1;
+				hasSiblings = roots.length > 1;
+			}
+
+			const depth = Object.keys(parentPath).length;
+			const branchPath = {
+				...parentPath,
+				[depth]: {
+					position: position,
+					hasSiblings: hasSiblings,
+				},
+			};
+
+			(node as any).branchPath = branchPath;
+
+			// Recursively assign to all children
+			node.children?.forEach((child) => {
+				assignBranchPaths(child, branchPath);
+			});
+		};
+
+		// Start the recursive assignment from all roots
+		roots.forEach((root) => assignBranchPaths(root));
+		//#endregion
+
 		return roots;
 	};
+
 	//#endregion
 
 	//#region Load Initial Data

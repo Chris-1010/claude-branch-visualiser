@@ -63,7 +63,6 @@ body {
 	position: relative;
 }
 
-
 /* #region Header */
 header {
 	grid-area: 1/1/2/2;
@@ -90,13 +89,19 @@ header > svg.sidebar-icon.active {
 	transition: transform 0.3s ease;
 }
 
+@media screen and (max-width: 900px) {
+	header > h1 {
+		display: none;
+	}
+}
+
 header > div.current-chat-file {
 	position: absolute;
 	right: 5vw;
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
-	height: 60%;
+	min-height: 60%;
 	max-width: 22vw;
 	font-weight: 700;
 	background: #2d2d2d;
@@ -105,19 +110,26 @@ header > div.current-chat-file {
 	border-radius: 1rem;
 }
 
+@media screen and (max-height: 550px) {
+	header > div.current-chat-file {
+		display: none;
+	}
+}
+
 div.current-chat-file > span {
-    font-weight: 300;
-    font-size: 0.75rem;
+	font-weight: 300;
+	font-size: 0.75rem;
 }
 
 header > div.current-chat-file > h2 {
-    font-size: 1.25rem;
-    margin: 0;
-    width: 100%;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow: hidden;
+	font-size: 1.25rem;
+	margin: 0;
+	width: 100%;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	overflow: hidden;
 }
+
 
 /* #endregion */
 
@@ -168,6 +180,37 @@ div.content {
 
 .details-pane.active {
 	right: 0;
+}
+
+.details-pane > div.branch-path {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	overflow: visible;
+}
+
+div.branch-path > div {
+	display: flex;
+	justify-content: start;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+div.branch-path > div > span {
+	background: #444;
+	padding: 2px 6px;
+	border-radius: 4px;
+	white-space: nowrap;
+	font-size: 12px;
+	user-select: none;
+	cursor: default;
+}
+
+div.branch-path > div > span.branch-number.branched {
+    font-size: 20px;
+    background: crimson;
+    font-weight: 700;
 }
 
 .details-pane > div {
