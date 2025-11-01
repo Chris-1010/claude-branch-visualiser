@@ -12,7 +12,7 @@ const Header: React.FC = () => {
 			{currentChatFile && (
 				<div className="current-chat-file">
 					<span>Current File</span>
-					<h2>{currentChatFile.name}</h2>
+					<h2 title={currentChatFile.name}>{currentChatFile.name}</h2>
 				</div>
 			)}
 		</header>
