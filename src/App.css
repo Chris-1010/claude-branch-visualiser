@@ -186,7 +186,14 @@ div.content {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
+	background: #2020209c;
+	padding: 5px;
+	border-radius: 5px;
 	overflow: visible;
+}
+
+div.branch-path > strong {
+	cursor: pointer;
 }
 
 div.branch-path > div {
@@ -200,7 +207,7 @@ div.branch-path > div {
 div.branch-path > div > span {
 	background: #444;
 	padding: 2px 6px;
-	border-radius: 4px;
+	border-radius: 5px;
 	white-space: nowrap;
 	font-size: 12px;
 	user-select: none;
@@ -222,7 +229,7 @@ div.branch-path > div > span.branch-number.branched {
 	margin-top: 10px;
 	padding: 10px;
 	background: #333;
-	border-radius: 4px;
+	border-radius: 5px;
 	white-space: break-spaces;
 	overflow: auto;
 	height: 100%;

@@ -21,7 +21,9 @@ const DetailsPane: React.FC = () => {
 
 			{pathKeys.length > 0 && (
 				<div className="branch-path">
-					<strong>Branch</strong>
+					<strong title="Open Claude.ai" onClick={() => window.open("http://claude.ai", "_blank")}>
+						Branch
+					</strong>
 					<div>
 						{pathKeys.map((key) => {
 							const { position, hasSiblings } = branchPath[key];
