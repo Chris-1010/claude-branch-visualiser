@@ -86,6 +86,15 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 			});
 		}
 
+		// Sort results by date (newest first). Be defensive about created_at formats.
+		const parseDate = (d: any) => {
+			if (!d) return 0;
+			const t = new Date(d).getTime();
+			return isNaN(t) ? 0 : t;
+		};
+
+		results.sort((a, b) => parseDate((b.message as any).created_at) - parseDate((a.message as any).created_at));
+
 		setSearchResults(results);
 		setSelectedIndex(-1);
 	};
