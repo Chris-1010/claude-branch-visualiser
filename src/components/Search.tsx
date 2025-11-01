@@ -92,6 +92,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 
 	useEffect(() => {
 		performSearch(searchQuery);
+		if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
 	}, [searchMode]);
 
 	useEffect(() => {
