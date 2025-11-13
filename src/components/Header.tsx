@@ -8,7 +8,7 @@ const Header: React.FC = () => {
 	return (
 		<header>
 			<Menu size={40} className={`sidebar-icon${sidebarOpen ? " active" : ""}`} onClick={toggleSidebar} />
-			<h1>Claude Branch Visualiser</h1>
+			<h1>Branch Visualiser</h1>
 			{currentChatFile && (
 				<div className="current-chat-file">
 					<span>Current File</span>
