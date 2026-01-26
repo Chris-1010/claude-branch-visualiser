@@ -1,9 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { useChatContext } from "../context/ChatContext";
 import MessageContentRenderer from "../utils/MessageContentRenderer";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 const DetailsPane: React.FC = () => {
 	const { currentlySelectedMessage } = useChatContext();
+	const [thinkingExpanded, setThinkingExpanded] = useState(false);
 
 	if (!currentlySelectedMessage) {
 		return <div className="details-pane"></div>;
@@ -11,6 +13,11 @@ const DetailsPane: React.FC = () => {
 
 	const messageText =
 		currentlySelectedMessage.content?.find((c) => c.type === "text")?.text || currentlySelectedMessage.text || "No text content";
+
+	// Get thinking content if present
+	const thinkingContent = currentlySelectedMessage.content?.find((c) => c.type === "thinking");
+	const thinkingText = thinkingContent?.thinking;
+	const thinkingSummary = thinkingContent?.summaries?.[0]?.summary;
 
 	const branchPath = (currentlySelectedMessage as any).branchPath || {};
 	const pathKeys = Object.keys(branchPath);
@@ -100,6 +107,24 @@ const DetailsPane: React.FC = () => {
 					<small>{getRelativeTimeDescription(currentlySelectedMessage.created_at)}</small>
 				</span>
 			</div>
+
+			{thinkingText && (
+				<div className="message-thinking">
+					<div className="thinking-header" onClick={() => setThinkingExpanded(!thinkingExpanded)}>
+						{thinkingExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+						<strong>Thinking</strong>
+						{thinkingSummary && !thinkingExpanded && (
+							<span className="thinking-summary">{thinkingSummary}</span>
+						)}
+					</div>
+					{thinkingExpanded && (
+						<div className="thinking-content">
+							<MessageContentRenderer content={thinkingText} />
+						</div>
+					)}
+				</div>
+			)}
+
 			<div className="message-content">
 				<strong>Content:</strong>
 				<MessageContentRenderer content={messageText} />

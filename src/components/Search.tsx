@@ -44,19 +44,32 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 
 			allMessages.forEach((message) => {
 				const messageText = message.content?.find((c) => c.type === "text")?.text || message.text || "";
+				const thinkingText = message.content?.find((c) => c.type === "thinking")?.thinking || "";
+				const combinedText = messageText + " " + thinkingText;
 
-				if (messageText.toLowerCase().includes(searchTerm)) {
-					const matchIndex = messageText.toLowerCase().indexOf(searchTerm);
+				if (combinedText.toLowerCase().includes(searchTerm)) {
+					// Prefer showing context from regular text, fall back to thinking
+					let sourceText = messageText;
+					let matchIndex = messageText.toLowerCase().indexOf(searchTerm);
+					let isThinkingMatch = false;
+
+					if (matchIndex === -1 && thinkingText) {
+						sourceText = thinkingText;
+						matchIndex = thinkingText.toLowerCase().indexOf(searchTerm);
+						isThinkingMatch = true;
+					}
+
 					const contextStart = Math.max(0, matchIndex - 50);
-					const contextEnd = Math.min(messageText.length, matchIndex + searchTerm.length + 50);
+					const contextEnd = Math.min(sourceText.length, matchIndex + searchTerm.length + 50);
 
-					let context = messageText.substring(contextStart, contextEnd);
+					let context = sourceText.substring(contextStart, contextEnd);
 					if (contextStart > 0) context = "..." + context;
-					if (contextEnd < messageText.length) context = context + "...";
+					if (contextEnd < sourceText.length) context = context + "...";
+					if (isThinkingMatch) context = "[Thinking] " + context;
 
 					results.push({
 						message,
-						matchText: messageText.substring(matchIndex, matchIndex + searchTerm.length),
+						matchText: sourceText.substring(matchIndex, matchIndex + searchTerm.length),
 						context,
 					});
 				}
@@ -66,19 +79,32 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 			chatFiles.forEach((chatFile) => {
 				chatFile.messages.forEach((message) => {
 					const messageText = message.content?.find((c: any) => c.type === "text")?.text || message.text || "";
+					const thinkingText = message.content?.find((c: any) => c.type === "thinking")?.thinking || "";
+					const combinedText = messageText + " " + thinkingText;
 
-					if (messageText.toLowerCase().includes(searchTerm)) {
-						const matchIndex = messageText.toLowerCase().indexOf(searchTerm);
+					if (combinedText.toLowerCase().includes(searchTerm)) {
+						// Prefer showing context from regular text, fall back to thinking
+						let sourceText = messageText;
+						let matchIndex = messageText.toLowerCase().indexOf(searchTerm);
+						let isThinkingMatch = false;
+
+						if (matchIndex === -1 && thinkingText) {
+							sourceText = thinkingText;
+							matchIndex = thinkingText.toLowerCase().indexOf(searchTerm);
+							isThinkingMatch = true;
+						}
+
 						const contextStart = Math.max(0, matchIndex - 50);
-						const contextEnd = Math.min(messageText.length, matchIndex + searchTerm.length + 50);
+						const contextEnd = Math.min(sourceText.length, matchIndex + searchTerm.length + 50);
 
-						let context = messageText.substring(contextStart, contextEnd);
+						let context = sourceText.substring(contextStart, contextEnd);
 						if (contextStart > 0) context = "..." + context;
-						if (contextEnd < messageText.length) context = context + "...";
+						if (contextEnd < sourceText.length) context = context + "...";
+						if (isThinkingMatch) context = "[Thinking] " + context;
 
 						results.push({
 							message: { ...message, _chatFileName: chatFile.name }, // Add file name for display
-							matchText: messageText.substring(matchIndex, matchIndex + searchTerm.length),
+							matchText: sourceText.substring(matchIndex, matchIndex + searchTerm.length),
 							context,
 						});
 					}

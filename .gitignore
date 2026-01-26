@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 
 chats/
+.claude/
+CLAUDE.md

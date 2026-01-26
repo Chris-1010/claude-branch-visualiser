@@ -2,12 +2,19 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { dbManager, type ChatFile } from "../utils/indexedDB";
 
 //#region Interfaces
+interface ThinkingSummary {
+	summary: string;
+}
+
 interface MessageContent {
 	start_timestamp: string;
 	stop_timestamp: string;
 	type: string;
-	text: string;
-	citations: any[];
+	text?: string;
+	thinking?: string;
+	summaries?: ThinkingSummary[];
+	citations?: any[];
+	cut_off?: boolean;
 }
 
 interface Message {

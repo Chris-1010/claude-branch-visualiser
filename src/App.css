@@ -246,6 +246,58 @@ div.message-created-at > span > small {
 
 /*#endregion ## CreatedAt */
 
+/*#region ## Thinking */
+.details-pane > div.message-thinking {
+	margin-top: 10px;
+	border: 1px solid #4a5568;
+	border-radius: 5px;
+	background-color: #1a1a2e;
+}
+
+.thinking-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.thinking-header:hover {
+	background-color: #252540;
+}
+
+.thinking-header strong {
+	color: #a78bfa;
+}
+
+.thinking-summary {
+	color: #9ca3af;
+	font-size: 13px;
+	font-style: italic;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex: 1;
+}
+
+.thinking-content {
+	border-top: 1px solid #4a5568;
+	padding: 10px;
+	max-height: 300px;
+	overflow: auto;
+}
+
+.thinking-content > div.message-content-parsed {
+	background: #252540;
+	border-radius: 5px;
+	white-space: break-spaces;
+	text-align: left;
+	line-height: 1.6;
+	color: #c4b5fd;
+}
+/*#endregion ## Thinking */
+
 /*#region ## Content */
 .details-pane > div.message-content {
 	padding: 10px;
