@@ -9,6 +9,7 @@ const SETTINGS_STORE = "settings";
 interface ChatFile {
 	id: string;
 	name: string;
+	displayName?: string;
 	lastUpdated: string;
 	messages: any[];
 	treeData?: any[];

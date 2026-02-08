@@ -121,13 +121,27 @@ div.current-chat-file > span {
 	font-size: 0.75rem;
 }
 
-header > div.current-chat-file > h2 {
+header > div.current-chat-file > input.current-chat-file-input {
 	font-size: 1.25rem;
+	font-weight: 700;
+	font-family: inherit;
 	margin: 0;
 	width: 100%;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	overflow: hidden;
+	background: transparent;
+	border: none;
+	border-bottom: 2px solid transparent;
+	color: white;
+	outline: none;
+	padding: 0;
+	text-align: center;
+	cursor: text;
+}
+
+header > div.current-chat-file > input.current-chat-file-input:focus {
+	border-bottom-color: #ff9100;
 }
 
 /* #endregion */
@@ -831,6 +845,16 @@ div.file-upload > label:active {
 	font-size: 12px;
 	color: #ccc;
 	margin-bottom: 8px;
+}
+
+.sidebar-item-original-name {
+	color: #999;
+	font-size: 11px;
+	text-align: left;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-bottom: 2px;
 }
 
 .sidebar-item-updated {

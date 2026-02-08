@@ -55,6 +55,7 @@ interface ChatContextType {
 	toggleSidebar: () => void;
 	setShowHelp: (shown: boolean) => void;
 	setFileserverPassword: (password: string | null) => Promise<void>;
+	renameChatFile: (id: string, newDisplayName: string) => Promise<void>;
 }
 //#endregion
 
@@ -196,6 +197,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 			const chatFile: ChatFile = {
 				id: existingFileIndex !== -1 ? chatFiles[existingFileIndex].id : Date.now().toString(),
 				name: fileName,
+				displayName: existingFileIndex !== -1 ? chatFiles[existingFileIndex].displayName : undefined,
 				lastUpdated: new Date().toISOString(),
 				messages,
 				treeData,
@@ -223,6 +225,30 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 		} catch (error) {
 			console.error("Failed to add/update chat file:", error);
 			throw error;
+		}
+	};
+
+	const renameChatFile = async (id: string, newDisplayName: string): Promise<void> => {
+		try {
+			const fileIndex = chatFiles.findIndex((file) => file.id === id);
+			if (fileIndex === -1) return;
+
+			const updatedFile: ChatFile = {
+				...chatFiles[fileIndex],
+				displayName: newDisplayName.trim() || undefined,
+			};
+
+			await dbManager.saveChatFile(updatedFile);
+
+			const updatedFiles = [...chatFiles];
+			updatedFiles[fileIndex] = updatedFile;
+			setChatFiles(updatedFiles);
+
+			if (currentChatFile?.id === id) {
+				setCurrentChatFileState(updatedFile);
+			}
+		} catch (error) {
+			console.error("Failed to rename chat file:", error);
 		}
 	};
 
@@ -323,6 +349,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				toggleSidebar,
 				setShowHelp,
 				setFileserverPassword,
+				renameChatFile,
 			}}
 		>
 			{children}
