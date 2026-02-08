@@ -1,5 +1,7 @@
 # Claude Branch Visualiser
 
+<img width="1914" height="950" alt="main_page" src="https://github.com/user-attachments/assets/a99317ef-0a78-4e9a-8545-d7620662dbc2" />
+
 A web app that visualises branching conversations from [Claude.ai](https://claude.ai) as interactive tree diagrams.
 
 Claude conversations branch when you edit a message or retry a response. This tool lets you see the full tree structure, navigate between branches, and search across messages.
