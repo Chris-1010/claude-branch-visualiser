@@ -226,14 +226,39 @@ const Sidebar: React.FC = () => {
 		}
 	};
 
-	const handleDeleteChatFile = async (id: string, fileName: string) => {
-		if (confirm(`Delete "${fileName}"?`)) {
-			try {
-				await deleteChatFile(id);
-			} catch (error) {
-				console.error("Failed to delete file:", error);
-				alert("Failed to delete file. Check console for details.");
+	const handleDeleteChatFile = async (id: string, fileName: string, event: React.MouseEvent) => {
+		const skipConfirm = event.shiftKey;
+
+		if (!skipConfirm) {
+			const message = fileserverPassword
+				? `Delete "${fileName}"?\n\nThis will also delete it from the fileserver.\n\n(Tip: Hold Shift when clicking delete to skip this dialog)`
+				: `Delete "${fileName}"?`;
+			if (!confirm(message)) return;
+		}
+
+		try {
+			// Delete from fileserver if password is set
+			if (fileserverPassword) {
+				const deleteUrl = `https://files.server-chris.com/projects/claude-branch-visualiser/${encodeURIComponent(
+					fileName
+				)}?delete&pw=${encodeURIComponent(fileserverPassword)}`;
+
+				const response = await fetch(deleteUrl, { method: "POST" });
+
+				if (!response.ok) {
+					console.error(`[Delete] Fileserver delete failed for ${fileName}: ${response.status}`);
+					alert(`Failed to delete "${fileName}" from fileserver (${response.status}). File was not deleted locally.`);
+					return;
+				}
+
+				console.log(`[Delete] ✓ Deleted from fileserver: ${fileName}`);
 			}
+
+			// Delete locally
+			await deleteChatFile(id);
+		} catch (error) {
+			console.error("Failed to delete file:", error);
+			alert("Failed to delete file. Check console for details.");
 		}
 	};
 	//#endregion
@@ -394,7 +419,7 @@ const Sidebar: React.FC = () => {
 										className="sidebar-action-btn delete-btn"
 										onClick={(e) => {
 											e.stopPropagation();
-											handleDeleteChatFile(chatFile.id, chatFile.name);
+											handleDeleteChatFile(chatFile.id, chatFile.name, e);
 										}}
 										title="Delete chat file"
 									>
