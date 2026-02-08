@@ -612,6 +612,11 @@ div.message-created-at > span > small {
 	margin-bottom: 4px;
 }
 
+.search-highlight {
+	color: red;
+	font-weight: 700;
+}
+
 .search-result-date {
 	color: #999;
 	font-size: 11px;

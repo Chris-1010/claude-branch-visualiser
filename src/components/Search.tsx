@@ -236,6 +236,23 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 	};
 	//#endregion
 
+	//#region Highlight Helper
+	const highlightMatch = (text: string, query: string) => {
+		if (!query || query.length < 3) return text;
+		const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+		const parts = text.split(regex);
+		return parts.map((part, i) =>
+			regex.test(part) ? (
+				<span key={i} className="search-highlight">
+					{part}
+				</span>
+			) : (
+				part
+			)
+		);
+	};
+	//#endregion
+
 	//#region Date Formatting Helpers
 	const formatCreatedDate = (dateString: string): string => {
 		try {
@@ -337,7 +354,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 											<span className="search-result-file">{(result.message as any)._chatFileName}</span>
 										)}
 									</div>
-									<div className="search-result-context">{result.context}</div>
+									<div className="search-result-context">{highlightMatch(result.context, searchQuery)}</div>
 									<div className="search-result-date">
 										{formatCreatedDate(result.message.created_at)} ({getRelativeTimeDescription(result.message.created_at)})
 									</div>
