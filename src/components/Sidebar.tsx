@@ -40,6 +40,17 @@ const Sidebar: React.FC = () => {
 	}, [chatFiles, isLoading, getStorageInfo]);
 	//#endregion
 
+	//#region Auto-sync on initial load
+	const hasSyncedRef = useRef(false);
+	useEffect(() => {
+		if (!isLoading && fileserverPassword && !hasSyncedRef.current) {
+			hasSyncedRef.current = true;
+			console.log("[Sync] Auto-syncing on page load");
+			syncFromFileserver();
+		}
+	}, [isLoading, fileserverPassword]);
+	//#endregion
+
 	const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
 		if (file) {
