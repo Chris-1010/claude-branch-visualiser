@@ -45,7 +45,7 @@ interface ChatContextType {
 	isLoading: boolean;
 	showHelp: boolean;
 	fileserverPassword: string | null;
-	addOrUpdateChatFile: (fileName: string, messages: Message[]) => Promise<void>;
+	addOrUpdateChatFile: (fileName: string, messages: Message[], setAsCurrent?: boolean) => Promise<void>;
 	setCurrentChatFile: (chatFile: ChatFile | null) => Promise<void>;
 	setCurrentlySelectedMessage: (message: Message | null) => void;
 	deleteChatFile: (id: string) => Promise<void>;
@@ -188,7 +188,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	//#endregion
 
 	//#region Chat File Management
-	const addOrUpdateChatFile = async (fileName: string, messages: Message[]): Promise<void> => {
+	const addOrUpdateChatFile = async (fileName: string, messages: Message[], setAsCurrent: boolean = true): Promise<void> => {
 		try {
 			const existingFileIndex = chatFiles.findIndex((file) => file.name === fileName);
 			const treeData = buildTree(messages);
@@ -213,8 +213,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				setChatFiles((prev) => [...prev, chatFile]);
 			}
 
-			setCurrentChatFileState(chatFile);
-			setCurrentlySelectedMessage(null);
+			if (setAsCurrent) {
+				setCurrentChatFileState(chatFile);
+				setCurrentlySelectedMessage(null);
+			} else if (currentChatFile && chatFile.id === currentChatFile.id) {
+				// If we're silently updating the currently viewed file, refresh it in place
+				setCurrentChatFileState(chatFile);
+			}
 		} catch (error) {
 			console.error("Failed to add/update chat file:", error);
 			throw error;
