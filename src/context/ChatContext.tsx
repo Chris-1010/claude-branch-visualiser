@@ -44,7 +44,9 @@ interface ChatContextType {
 	sidebarOpen: boolean;
 	isLoading: boolean;
 	showHelp: boolean;
+	heatmapEnabled: boolean;
 	fileserverPassword: string | null;
+	toggleHeatmap: () => void;
 	addOrUpdateChatFile: (fileName: string, messages: Message[], setAsCurrent?: boolean) => Promise<void>;
 	setCurrentChatFile: (chatFile: ChatFile | null) => Promise<void>;
 	setCurrentlySelectedMessage: (message: Message | null) => void;
@@ -77,6 +79,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	const [isLoading, setIsLoading] = useState(true);
 	const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 	const [showHelp, setShowHelp] = useState<boolean>(false);
+	const [heatmapEnabled, setHeatmapEnabled] = useState<boolean>(false);
 	const [fileserverPassword, setFileserverPasswordState] = useState<string | null>(null);
 	//#endregion
 
@@ -327,6 +330,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 		setSidebarOpen((prev) => !prev);
 	};
 
+	const toggleHeatmap = () => {
+		setHeatmapEnabled((prev) => !prev);
+	};
+
 	return (
 		<ChatContext.Provider
 			value={{
@@ -338,7 +345,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				isLoading,
 				sidebarOpen,
 				showHelp,
+				heatmapEnabled,
 				fileserverPassword,
+				toggleHeatmap,
 				addOrUpdateChatFile,
 				setCurrentChatFile,
 				setCurrentlySelectedMessage,

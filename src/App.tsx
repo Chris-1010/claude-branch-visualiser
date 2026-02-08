@@ -6,6 +6,7 @@ import Search from "./components/Search";
 import type { ChatTreeRef } from "./components/ChatTree";
 import { useRef } from "react";
 import Sidebar from "./components/Sidebar";
+import HeatmapToggle from "./components/HeatmapToggle";
 
 function App() {
 	const chatTreeRef = useRef<ChatTreeRef>(null);
@@ -13,6 +14,7 @@ function App() {
 		<ChatProvider>
 			<Header />
 			<Search chatTreeRef={chatTreeRef} />
+			<HeatmapToggle />
 			<div className="content">
 				<Sidebar />
 				<ChatTree ref={chatTreeRef} />
