@@ -1,5 +1,5 @@
 //#region Imports
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import * as go from "gojs";
 import { useChatContext } from "../context/ChatContext";
 import Help from "./Help";
@@ -127,6 +127,81 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 
 		return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 	};
+
+	const parseColor = (color: string): [number, number, number] => {
+		const ctx = document.createElement("canvas").getContext("2d")!;
+		ctx.fillStyle = color;
+		const hex = ctx.fillStyle;
+		const r = parseInt(hex.slice(1, 3), 16);
+		const g = parseInt(hex.slice(3, 5), 16);
+		const b = parseInt(hex.slice(5, 7), 16);
+		return [r, g, b];
+	};
+
+	const lerpColor = (from: [number, number, number], to: [number, number, number], t: number): string => {
+		const r = Math.round(from[0] + (to[0] - from[0]) * t);
+		const g = Math.round(from[1] + (to[1] - from[1]) * t);
+		const b = Math.round(from[2] + (to[2] - from[2]) * t);
+		return `rgb(${r},${g},${b})`;
+	};
+
+	const getNodeTargetColor = useCallback((node: go.Node, enabled: boolean, timeRange: { minTime: number; maxTime: number } | null): string => {
+		const msg = node.data?.originalMessage;
+		if (!msg) return "#333";
+		if (enabled && timeRange) {
+			return getHeatmapColor(msg.created_at, timeRange.minTime, timeRange.maxTime);
+		}
+		return msg.sender === "human" ? "#444" : "#ff6f00";
+	}, []);
+
+	const animateHeatmapTransition = useCallback((diagram: go.Diagram, enabled: boolean, treeData: any[]) => {
+		const timeRange = enabled ? getTimestampRange(treeData) : null;
+		const duration = 500;
+		const startTime = performance.now();
+
+		// Capture starting colors and compute targets for each node
+		const nodeColors: Map<string, { from: [number, number, number]; to: [number, number, number] }> = new Map();
+		diagram.nodes.each((node) => {
+			const shape = node.findObject("") as go.Shape | null;
+			const currentFill = (shape?.fill as string) || "#333";
+			const targetColor = getNodeTargetColor(node, enabled, timeRange);
+			nodeColors.set(node.key as string, {
+				from: parseColor(currentFill),
+				to: parseColor(targetColor),
+			});
+		});
+
+		const animate = (now: number) => {
+			const elapsed = now - startTime;
+			const t = Math.min(elapsed / duration, 1);
+			const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // ease-in-out
+
+			diagram.commit(() => {
+				diagram.nodes.each((node) => {
+					const colors = nodeColors.get(node.key as string);
+					if (!colors) return;
+					const shape = node.findMainElement() as go.Shape;
+					if (shape) {
+						shape.fill = lerpColor(colors.from, colors.to, eased);
+					}
+				});
+			}, "heatmap transition");
+
+			if (t < 1) {
+				requestAnimationFrame(animate);
+			} else {
+				// Ensure final data model values are in sync
+				diagram.commit(() => {
+					diagram.nodes.each((node) => {
+						const targetColor = getNodeTargetColor(node, enabled, timeRange);
+						diagram.model.setDataProperty(node.data, "color", targetColor);
+					});
+				}, "heatmap finalize");
+			}
+		};
+
+		requestAnimationFrame(animate);
+	}, [getNodeTargetColor]);
 	//#endregion
 
 	//#region Data Processing
@@ -188,8 +263,6 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 			return;
 		}
 
-		const scrollPos = diagramInstanceRef.current.position.copy();
-
 		const { nodes, links } = convertTreeDataToGoJS(treeData);
 
 		diagramInstanceRef.current.model = new go.GraphLinksModel(nodes, links);
@@ -199,13 +272,19 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 				diagramInstanceRef.current!.select(node);
 			}
 		});
+	}, [treeData]);
 
-		requestAnimationFrame(() => {
-			if (diagramInstanceRef.current) {
-				diagramInstanceRef.current.position = scrollPos;
-			}
-		});
-	}, [treeData, heatmapEnabled]);
+	// Animate heatmap color transitions
+	const heatmapInitialised = useRef(false);
+	useEffect(() => {
+		if (!diagramInstanceRef.current || !treeData?.length) return;
+		// Skip animation on initial render — colors are already correct from model build
+		if (!heatmapInitialised.current) {
+			heatmapInitialised.current = true;
+			return;
+		}
+		animateHeatmapTransition(diagramInstanceRef.current, heatmapEnabled, treeData);
+	}, [heatmapEnabled]);
 	//#endregion
 
 	//#region Handle Selection Updates
