@@ -1,5 +1,5 @@
 interface SearchMessage {
-	chatFiles: { name: string; messages: any[] }[];
+	chatFiles: { name: string; displayName: string; messages: any[] }[];
 	query: string;
 }
 
@@ -46,7 +46,7 @@ self.onmessage = (e: MessageEvent<SearchMessage>) => {
 				if (isThinkingMatch) context = "[Thinking] " + context;
 
 				results.push({
-					message: { ...message, _chatFileName: chatFile.name },
+					message: { ...message, _chatFileName: chatFile.name, _chatFileDisplayName: chatFile.displayName },
 					matchText: sourceText.substring(matchIndex, matchIndex + searchTerm.length),
 					context,
 				});

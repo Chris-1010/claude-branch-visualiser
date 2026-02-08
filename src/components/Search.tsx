@@ -110,6 +110,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 			// Send only the data the worker needs (name + messages)
 			const workerData = chatFiles.map((cf) => ({
 				name: cf.name,
+				displayName: cf.displayName || cf.name,
 				messages: cf.messages,
 			}));
 
@@ -350,8 +351,8 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 								>
 									<div className="search-result-sender">
 										<h3 className={result.message.sender.toLowerCase()}>{result.message.sender === "human" ? "You" : "Claude"}</h3>
-										{searchMode === "all" && (result.message as any)._chatFileName && (
-											<span className="search-result-file">{(result.message as any)._chatFileName}</span>
+										{searchMode === "all" && (result.message as any)._chatFileDisplayName && (
+											<span className="search-result-file">{(result.message as any)._chatFileDisplayName}</span>
 										)}
 									</div>
 									<div className="search-result-context">{highlightMatch(result.context, searchQuery)}</div>

@@ -847,6 +847,16 @@ div.file-upload > label:active {
 	margin-bottom: 8px;
 }
 
+.sidebar-item-original-name {
+	color: #999;
+	font-size: 11px;
+	text-align: left;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-bottom: 2px;
+}
+
 .sidebar-item-updated {
 	display: flex;
 	align-items: center;

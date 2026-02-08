@@ -226,32 +226,32 @@ const Sidebar: React.FC = () => {
 		}
 	};
 
-	const handleDeleteChatFile = async (id: string, fileName: string, event: React.MouseEvent) => {
+	const handleDeleteChatFile = async (id: string, originalName: string, displayName: string, event: React.MouseEvent) => {
 		const skipConfirm = event.shiftKey;
 
 		if (!skipConfirm) {
 			const message = fileserverPassword
-				? `Delete "${fileName}"?\n\nThis will also delete it from the fileserver.\n\n(Tip: Hold Shift when clicking delete to skip this dialog)`
-				: `Delete "${fileName}"?`;
+				? `Delete "${displayName}"?\n\nThis will also delete it from the fileserver.\n\n(Tip: Hold Shift when clicking delete to skip this dialog)`
+				: `Delete "${displayName}"?`;
 			if (!confirm(message)) return;
 		}
 
 		try {
-			// Delete from fileserver if password is set
+			// Delete from fileserver if password is set (uses original name for URL)
 			if (fileserverPassword) {
 				const deleteUrl = `https://files.server-chris.com/projects/claude-branch-visualiser/${encodeURIComponent(
-					fileName
+					originalName
 				)}?delete&pw=${encodeURIComponent(fileserverPassword)}`;
 
 				const response = await fetch(deleteUrl, { method: "POST" });
 
 				if (!response.ok) {
-					console.error(`[Delete] Fileserver delete failed for ${fileName}: ${response.status}`);
-					alert(`Failed to delete "${fileName}" from fileserver (${response.status}). File was not deleted locally.`);
+					console.error(`[Delete] Fileserver delete failed for ${originalName}: ${response.status}`);
+					alert(`Failed to delete "${displayName}" from fileserver (${response.status}). File was not deleted locally.`);
 					return;
 				}
 
-				console.log(`[Delete] ✓ Deleted from fileserver: ${fileName}`);
+				console.log(`[Delete] ✓ Deleted from fileserver: ${originalName}`);
 			}
 
 			// Delete locally
@@ -384,12 +384,15 @@ const Sidebar: React.FC = () => {
 							>
 								<div className="sidebar-item-header">
 									<FileText size={16} />
-									<span className="sidebar-item-name" title={chatFile.name}>
-										{chatFile.name}
+									<span className="sidebar-item-name" title={chatFile.displayName || chatFile.name}>
+										{chatFile.displayName || chatFile.name}
 									</span>
 								</div>
 
 								<div className="sidebar-item-info">
+									{chatFile.displayName && (
+										<div className="sidebar-item-original-name" title={chatFile.name}>{chatFile.name}</div>
+									)}
 									<div className="sidebar-item-updated">
 										<Clock size={12} />
 										<span title={formatTimestamp(chatFile.lastUpdated)}>Updated {getRelativeTimeDescription(chatFile.lastUpdated)}</span>
@@ -419,7 +422,7 @@ const Sidebar: React.FC = () => {
 										className="sidebar-action-btn delete-btn"
 										onClick={(e) => {
 											e.stopPropagation();
-											handleDeleteChatFile(chatFile.id, chatFile.name, e);
+											handleDeleteChatFile(chatFile.id, chatFile.name, chatFile.displayName || chatFile.name, e);
 										}}
 										title="Delete chat file"
 									>
