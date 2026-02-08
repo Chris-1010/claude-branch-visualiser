@@ -327,7 +327,7 @@ const Sidebar: React.FC = () => {
 			<div className="sidebar-content">
 				{isSyncing && (
 					<div className="sidebar-sync-overlay">
-						<RefreshCw size={24} className="spinning" />
+						<RefreshCw size={40} className="spinning" />
 						<span>Syncing...</span>
 					</div>
 				)}
