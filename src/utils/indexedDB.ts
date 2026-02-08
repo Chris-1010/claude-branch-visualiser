@@ -223,21 +223,30 @@ class IndexedDBManager {
 	//#region Database Statistics
 	async getStorageUsage(): Promise<{ count: number; sizeEstimate: string }> {
 		try {
-			const chatFiles = await this.getAllChatFiles();
-			const sizeEstimate = this.estimateSize(chatFiles);
+			const db = await this.initDB();
 
-			return {
-				count: chatFiles.length,
-				sizeEstimate: `${(sizeEstimate / 1024 / 1024).toFixed(2)}MB`,
-			};
+			// Get count without loading all data
+			const count = await new Promise<number>((resolve, reject) => {
+				const transaction = db.transaction([CHAT_FILES_STORE], "readonly");
+				const store = transaction.objectStore(CHAT_FILES_STORE);
+				const request = store.count();
+				request.onsuccess = () => resolve(request.result);
+				request.onerror = () => reject(request.error);
+			});
+
+			// Use Storage API for size estimate instead of loading + serializing everything
+			let sizeEstimate = "N/A";
+			if (navigator.storage?.estimate) {
+				const estimate = await navigator.storage.estimate();
+				const usageBytes = estimate.usage || 0;
+				sizeEstimate = `${(usageBytes / 1024 / 1024).toFixed(2)}MB`;
+			}
+
+			return { count, sizeEstimate };
 		} catch (error) {
 			console.error("Failed to get storage usage:", error);
 			return { count: 0, sizeEstimate: "0MB" };
 		}
-	}
-
-	private estimateSize(data: any): number {
-		return JSON.stringify(data).length;
 	}
 	//#endregion
 }
