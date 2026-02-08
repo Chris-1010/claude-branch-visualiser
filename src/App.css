@@ -686,7 +686,7 @@ div.message-created-at > span > small {
 	color: #4caf50;
 }
 
-.sidebar-header-btn > .spinning {
+.sidebar .spinning {
 	animation: spin 1s linear infinite;
 	color: limegreen;
 }
@@ -899,7 +899,7 @@ div.file-upload > label:active {
 
 /*#region ## Sync Overlay */
 .sidebar-sync-overlay {
-	position: absolute;
+	position: fixed;
 	top: 0;
 	left: 0;
 	right: 0;
@@ -912,7 +912,7 @@ div.file-upload > label:active {
 	gap: 12px;
 	z-index: 10;
 	color: #ccc;
-	font-size: 14px;
+	font-size: 35px;
 	border-radius: 4px;
 }
 /*#endregion ## Sync Overlay */
