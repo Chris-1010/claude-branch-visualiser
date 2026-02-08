@@ -152,10 +152,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				// Load all chat files
 				const savedChatFiles = await dbManager.getAllChatFiles();
 
-				// Rebuild tree data for all files
+				// Use persisted tree data when available, only rebuild if missing
 				const processedChatFiles = savedChatFiles.map((file) => ({
 					...file,
-					treeData: buildTree(file.messages),
+					treeData: file.treeData?.length ? file.treeData : buildTree(file.messages),
 				}));
 
 				setChatFiles(processedChatFiles);
