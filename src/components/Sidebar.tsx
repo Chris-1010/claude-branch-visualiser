@@ -40,6 +40,17 @@ const Sidebar: React.FC = () => {
 	}, [chatFiles, isLoading, getStorageInfo]);
 	//#endregion
 
+	//#region Auto-sync on initial load
+	const hasSyncedRef = useRef(false);
+	useEffect(() => {
+		if (!isLoading && fileserverPassword && !hasSyncedRef.current) {
+			hasSyncedRef.current = true;
+			console.log("[Sync] Auto-syncing on page load");
+			syncFromFileserver();
+		}
+	}, [isLoading, fileserverPassword]);
+	//#endregion
+
 	const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
 		if (file) {
@@ -171,8 +182,8 @@ const Sidebar: React.FC = () => {
 							continue;
 						}
 
-						// Add or update in local storage
-						await addOrUpdateChatFile(fileName, fileData.chat_messages);
+						// Add or update in local storage (silent - don't switch focus)
+						await addOrUpdateChatFile(fileName, fileData.chat_messages, false);
 
 						if (existingFile) {
 							updatedCount++;
@@ -188,13 +199,6 @@ const Sidebar: React.FC = () => {
 			}
 
 			console.log(`[Sync] Complete - Downloaded: ${downloadedCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`);
-
-			// Show summary notification
-			if (downloadedCount > 0 || updatedCount > 0) {
-				alert(`Sync complete!\nNew: ${downloadedCount}\nUpdated: ${updatedCount}\nSkipped: ${skippedCount}`);
-			} else {
-				alert(`All files are up to date (${skippedCount} files checked)`);
-			}
 		} catch (error) {
 			console.error("[Sync] Failed:", error);
 			alert("Sync failed. Check console for details.");
@@ -332,6 +336,12 @@ const Sidebar: React.FC = () => {
 				</label>
 			</div>
 			<div className="sidebar-content">
+				{isSyncing && (
+					<div className="sidebar-sync-overlay">
+						<RefreshCw size={24} className="spinning" />
+						<span>Syncing...</span>
+					</div>
+				)}
 				{chatFiles.length === 0 ? (
 					<div className="sidebar-empty">
 						<FileText size={48} />
