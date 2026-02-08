@@ -376,7 +376,7 @@ const Sidebar: React.FC = () => {
 					</div>
 				) : (
 					<>
-						{chatFiles.map((chatFile) => (
+						{[...chatFiles].sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).map((chatFile) => (
 							<div
 								key={chatFile.id}
 								className={`sidebar-item ${currentChatFile?.id === chatFile.id ? "active" : ""}`}
