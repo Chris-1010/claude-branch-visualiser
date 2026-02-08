@@ -612,6 +612,11 @@ div.message-created-at > span > small {
 	margin-bottom: 4px;
 }
 
+.search-highlight {
+	color: red;
+	font-weight: 700;
+}
+
 .search-result-date {
 	color: #999;
 	font-size: 11px;
@@ -623,6 +628,22 @@ div.message-created-at > span > small {
 	text-align: center;
 	color: #999;
 	font-style: italic;
+}
+
+.search-loading {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	padding: 40px 20px;
+	color: #999;
+	font-size: 14px;
+}
+
+.search-loading > .spinning {
+	animation: spin 1s linear infinite;
+	color: #ff9100;
 }
 /* #endregion */
 
