@@ -10,7 +10,7 @@ interface ChatTreeRef {
 }
 
 const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
-	const { treeData, currentlySelectedMessage, setCurrentlySelectedMessage } = useChatContext();
+	const { treeData, currentlySelectedMessage, setCurrentlySelectedMessage, heatmapEnabled } = useChatContext();
 	const diagramInstanceRef = useRef<go.Diagram | null>(null);
 	const diagramRef = useRef<HTMLDivElement>(null);
 
@@ -95,6 +95,40 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 
 	//#endregion
 
+	//#region Heatmap
+	const getTimestampRange = (treeData: any[]): { minTime: number; maxTime: number } => {
+		let minTime = Infinity;
+		let maxTime = -Infinity;
+
+		const traverse = (node: any) => {
+			if (node.created_at) {
+				const time = new Date(node.created_at).getTime();
+				if (!isNaN(time)) {
+					if (time < minTime) minTime = time;
+					if (time > maxTime) maxTime = time;
+				}
+			}
+			node.children?.forEach(traverse);
+		};
+
+		treeData.forEach(traverse);
+		return { minTime, maxTime };
+	};
+
+	const getHeatmapColor = (timestamp: string, minTime: number, maxTime: number): string => {
+		const time = new Date(timestamp).getTime();
+		if (isNaN(time) || maxTime === minTime) return "#8B2500";
+
+		const t = (time - minTime) / (maxTime - minTime);
+
+		const hue = t * 45;
+		const saturation = 80 + t * 20;
+		const lightness = 15 + t * 50;
+
+		return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+	};
+	//#endregion
+
 	//#region Data Processing
 	const getNodeText = (node: any): string => {
 		if (node.content && node.content.length > 0) {
@@ -110,12 +144,17 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 	const convertTreeDataToGoJS = (treeData: any[]) => {
 		const nodes: any[] = [];
 		const links: any[] = [];
+		const timeRange = heatmapEnabled ? getTimestampRange(treeData) : null;
 
 		const processNode = (node: any, parentKey?: string) => {
+			const color = heatmapEnabled && timeRange
+				? getHeatmapColor(node.created_at, timeRange.minTime, timeRange.maxTime)
+				: node.sender === "human" ? "#444" : "#ff6f00";
+
 			const nodeData = {
 				key: node.uuid,
 				text: getNodeText(node),
-				color: node.sender === "human" ? "#444" : "#ff6f00",
+				color,
 				isSelected: currentlySelectedMessage?.uuid === node.uuid,
 				originalMessage: node,
 			};
@@ -149,6 +188,8 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 			return;
 		}
 
+		const scrollPos = diagramInstanceRef.current.position.copy();
+
 		const { nodes, links } = convertTreeDataToGoJS(treeData);
 
 		diagramInstanceRef.current.model = new go.GraphLinksModel(nodes, links);
@@ -158,7 +199,13 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 				diagramInstanceRef.current!.select(node);
 			}
 		});
-	}, [treeData]);
+
+		requestAnimationFrame(() => {
+			if (diagramInstanceRef.current) {
+				diagramInstanceRef.current.position = scrollPos;
+			}
+		});
+	}, [treeData, heatmapEnabled]);
 	//#endregion
 
 	//#region Handle Selection Updates

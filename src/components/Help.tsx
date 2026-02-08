@@ -65,6 +65,13 @@ const Help = () => {
 						</small>{" "}
 						for text within chat messages using the search icon at the bottom left of the screen
 					</li>
+					<li>
+						<strong>Heatmap</strong>{" "}
+						<small>
+							(Keyboard Shortcut <b>H</b>)
+						</small>{" "}
+						toggle to color the tree by message timestamp using the flame icon at the bottom right of the screen
+					</li>
 				</ol>
 				<a
 					href="#"
