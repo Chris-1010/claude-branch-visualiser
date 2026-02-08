@@ -1,6 +1,6 @@
 //#region Imports
 import React, { useState, useEffect, useRef } from "react";
-import { Search as SearchIcon, X } from "lucide-react";
+import { Search as SearchIcon, X, Loader } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
 import type { ChatTreeRef } from "./ChatTree";
 //#endregion
@@ -21,10 +21,28 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 	const [searchMode, setSearchMode] = useState<"current" | "all">("current");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+	const [isSearching, setIsSearching] = useState(false);
 	const [selectedIndex, setSelectedIndex] = useState(-1);
 	const { allMessages, chatFiles, currentChatFile, setCurrentChatFile, setCurrentlySelectedMessage, setSidebarOpen } = useChatContext();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const dropdownRef = useRef<HTMLDivElement>(null);
+	const workerRef = useRef<Worker | null>(null);
+	//#endregion
+
+	//#region Worker Setup
+	useEffect(() => {
+		workerRef.current = new Worker(new URL("../workers/searchWorker.ts", import.meta.url), { type: "module" });
+
+		workerRef.current.onmessage = (e: MessageEvent<SearchResult[]>) => {
+			setSearchResults(e.data);
+			setSelectedIndex(-1);
+			setIsSearching(false);
+		};
+
+		return () => {
+			workerRef.current?.terminate();
+		};
+	}, []);
 	//#endregion
 
 	//#region Search Logic
@@ -32,15 +50,14 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 		// No query (or too short), or no messages
 		if (query.trim().length < 3 || !allMessages.length) {
 			setSearchResults([]);
+			setIsSearching(false);
 			return;
 		}
 
-		const results: SearchResult[] = [];
-		const searchTerm = query.toLowerCase();
-
 		if (searchMode === "current") {
-			// Default behaviour - search only current file
-			if (!allMessages.length) return;
+			// Current chat search runs on main thread (fast, single file)
+			const results: SearchResult[] = [];
+			const searchTerm = query.toLowerCase();
 
 			allMessages.forEach((message) => {
 				const messageText = message.content?.find((c) => c.type === "text")?.text || message.text || "";
@@ -74,55 +91,30 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 					});
 				}
 			});
+
+			// Sort results by date (newest first). Be defensive about created_at formats.
+			const parseDate = (d: any) => {
+				if (!d) return 0;
+				const t = new Date(d).getTime();
+				return isNaN(t) ? 0 : t;
+			};
+
+			results.sort((a, b) => parseDate((b.message as any).created_at) - parseDate((a.message as any).created_at));
+
+			setSearchResults(results);
+			setSelectedIndex(-1);
 		} else {
-			// Search across all chat files - potentially expensive
-			chatFiles.forEach((chatFile) => {
-				chatFile.messages.forEach((message) => {
-					const messageText = message.content?.find((c: any) => c.type === "text")?.text || message.text || "";
-					const thinkingText = message.content?.find((c: any) => c.type === "thinking")?.thinking || "";
-					const combinedText = messageText + " " + thinkingText;
+			// "All Chats" search runs in Web Worker
+			setIsSearching(true);
 
-					if (combinedText.toLowerCase().includes(searchTerm)) {
-						// Prefer showing context from regular text, fall back to thinking
-						let sourceText = messageText;
-						let matchIndex = messageText.toLowerCase().indexOf(searchTerm);
-						let isThinkingMatch = false;
+			// Send only the data the worker needs (name + messages)
+			const workerData = chatFiles.map((cf) => ({
+				name: cf.name,
+				messages: cf.messages,
+			}));
 
-						if (matchIndex === -1 && thinkingText) {
-							sourceText = thinkingText;
-							matchIndex = thinkingText.toLowerCase().indexOf(searchTerm);
-							isThinkingMatch = true;
-						}
-
-						const contextStart = Math.max(0, matchIndex - 50);
-						const contextEnd = Math.min(sourceText.length, matchIndex + searchTerm.length + 50);
-
-						let context = sourceText.substring(contextStart, contextEnd);
-						if (contextStart > 0) context = "..." + context;
-						if (contextEnd < sourceText.length) context = context + "...";
-						if (isThinkingMatch) context = "[Thinking] " + context;
-
-						results.push({
-							message: { ...message, _chatFileName: chatFile.name }, // Add file name for display
-							matchText: sourceText.substring(matchIndex, matchIndex + searchTerm.length),
-							context,
-						});
-					}
-				});
-			});
+			workerRef.current?.postMessage({ chatFiles: workerData, query });
 		}
-
-		// Sort results by date (newest first). Be defensive about created_at formats.
-		const parseDate = (d: any) => {
-			if (!d) return 0;
-			const t = new Date(d).getTime();
-			return isNaN(t) ? 0 : t;
-		};
-
-		results.sort((a, b) => parseDate((b.message as any).created_at) - parseDate((a.message as any).created_at));
-
-		setSearchResults(results);
-		setSelectedIndex(-1);
 	};
 
 	useEffect(() => {
@@ -190,6 +182,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 		setIsOpen(false);
 		setSearchQuery("");
 		setSearchResults([]);
+		setIsSearching(false);
 		setSelectedIndex(-1);
 		if (inputRef.current) {
 			inputRef.current.blur();
@@ -325,11 +318,16 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 						</button>
 					</div>
 
-					{searchResults.length > 0 && (
+					{isSearching ? (
+						<div className="search-loading">
+							<Loader size={24} className="spinning" />
+							<span>Searching all chat files...</span>
+						</div>
+					) : searchResults.length > 0 ? (
 						<div className="search-results">
 							{searchResults.map((result, index) => (
 								<div
-									key={result.message.uuid}
+									key={`${result.message.uuid}-${index}`}
 									className={`search-result ${index === selectedIndex ? "selected" : ""}`}
 									onClick={() => handleResultClick(result)}
 								>
@@ -346,13 +344,11 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 								</div>
 							))}
 						</div>
-					)}
-
-					{searchQuery.length >= 3 && searchResults.length === 0 ? (
+					) : searchQuery.length >= 3 ? (
 						<div className="search-no-results">No messages found matching "{searchQuery}"</div>
-					) : searchQuery.length < 3 ? (
+					) : (
 						<div className="search-invalid-query">Enter at least 3 characters to search</div>
-					) : null}
+					)}
 				</div>
 			</div>
 		</>
