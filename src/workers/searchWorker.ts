@@ -7,6 +7,7 @@ interface SearchResult {
 	message: any;
 	matchText: string;
 	context: string;
+	isTitleMatch?: boolean;
 }
 
 const MAX_RESULTS = 100;
@@ -18,15 +19,30 @@ self.onmessage = (e: MessageEvent<SearchMessage>) => {
 
 	for (const chatFile of chatFiles) {
 		if (results.length >= MAX_RESULTS) break;
+		const seenTitles = new Set<string>();
 
 		for (const message of chatFile.messages) {
 			if (results.length >= MAX_RESULTS) break;
 
+			const titleText = message.custom_title || "";
 			const messageText = message.content?.find((c: any) => c.type === "text")?.text || message.text || "";
 			const thinkingText = message.content?.find((c: any) => c.type === "thinking")?.thinking || "";
-			const combinedText = messageText + " " + thinkingText;
 
-			if (combinedText.toLowerCase().includes(searchTerm)) {
+			const titleMatch = titleText && titleText.toLowerCase().includes(searchTerm) && !seenTitles.has(titleText);
+			const contentMatch = (messageText + " " + thinkingText).toLowerCase().includes(searchTerm);
+
+			if (!titleMatch && !contentMatch) continue;
+
+			if (titleMatch) {
+				seenTitles.add(titleText);
+				const matchIndex = titleText.toLowerCase().indexOf(searchTerm);
+				results.push({
+					message: { ...message, _chatFileName: chatFile.name, _chatFileDisplayName: chatFile.displayName },
+					matchText: titleText.substring(matchIndex, matchIndex + searchTerm.length),
+					context: titleText,
+					isTitleMatch: true,
+				});
+			} else {
 				let sourceText = messageText;
 				let matchIndex = messageText.toLowerCase().indexOf(searchTerm);
 				let isThinkingMatch = false;

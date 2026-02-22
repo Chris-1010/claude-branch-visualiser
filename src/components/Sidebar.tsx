@@ -247,8 +247,11 @@ const Sidebar: React.FC = () => {
 
 				if (!response.ok) {
 					console.error(`[Delete] Fileserver delete failed for ${originalName}: ${response.status}`);
-					alert(`Failed to delete "${displayName}" from fileserver (${response.status}). File was not deleted locally.`);
-					return;
+					if (response.status !== 400) {
+						alert(`Failed to delete "${displayName}" from fileserver (${response.status}). File was not deleted locally.`);
+						return;
+					}
+					console.log(`[Delete] Got 400 from fileserver (file likely already removed) — deleting locally anyway.`);
 				}
 
 				console.log(`[Delete] ✓ Deleted from fileserver: ${originalName}`);

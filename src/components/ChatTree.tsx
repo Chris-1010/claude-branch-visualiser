@@ -34,26 +34,40 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 		});
 
 		// Define node template
-		myDiagram.nodeTemplate = new go.Node("Auto", {
+		myDiagram.nodeTemplate = new go.Node("Vertical", {
 			movable: false,
 			copyable: false,
 			deletable: false,
 		}).add(
-			new go.Shape("RoundedRectangle", {
-				strokeWidth: 1,
-				stroke: "#555",
-				fill: "#333",
-			})
-				.bind("fill", "color")
-				.bind("stroke", "isSelected", (sel) => (sel ? "#ff6f00" : "#555")),
 			new go.TextBlock({
-				margin: 8,
-				font: "12px sans-serif",
-				stroke: "white",
+				font: "bold 11px sans-serif",
+				stroke: "#ff9100",
+				margin: new go.Margin(0, 0, 3, 0),
 				maxSize: new go.Size(200, NaN),
 				wrap: go.TextBlock.WrapFit,
 				textAlign: "center",
-			}).bind("text")
+				visible: false,
+			})
+				.bind("text", "customTitle")
+				.bind("visible", "customTitle", (title) => !!title),
+			new go.Panel("Auto").add(
+				new go.Shape("RoundedRectangle", {
+					name: "nodeShape",
+					strokeWidth: 1,
+					stroke: "#555",
+					fill: "#333",
+				})
+					.bind("fill", "color")
+					.bind("stroke", "isSelected", (sel) => (sel ? "#ff6f00" : "#555")),
+				new go.TextBlock({
+					margin: 8,
+					font: "12px sans-serif",
+					stroke: "white",
+					maxSize: new go.Size(200, NaN),
+					wrap: go.TextBlock.WrapFit,
+					textAlign: "center",
+				}).bind("text")
+			)
 		);
 
 		// Define link template
@@ -162,7 +176,7 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 		// Capture starting colors and compute targets for each node
 		const nodeColors: Map<string, { from: [number, number, number]; to: [number, number, number] }> = new Map();
 		diagram.nodes.each((node) => {
-			const shape = node.findObject("") as go.Shape | null;
+			const shape = node.findObject("nodeShape") as go.Shape | null;
 			const currentFill = (shape?.fill as string) || "#333";
 			const targetColor = getNodeTargetColor(node, enabled, timeRange);
 			nodeColors.set(node.key as string, {
@@ -180,7 +194,7 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 				diagram.nodes.each((node) => {
 					const colors = nodeColors.get(node.key as string);
 					if (!colors) return;
-					const shape = node.findMainElement() as go.Shape;
+					const shape = node.findObject("nodeShape") as go.Shape;
 					if (shape) {
 						shape.fill = lerpColor(colors.from, colors.to, eased);
 					}
@@ -231,6 +245,7 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 				text: getNodeText(node),
 				color,
 				isSelected: currentlySelectedMessage?.uuid === node.uuid,
+				customTitle: node.custom_title || null,
 				originalMessage: node,
 			};
 			nodes.push(nodeData);
@@ -277,12 +292,12 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 	// Animate heatmap color transitions
 	const heatmapInitialised = useRef(false);
 	useEffect(() => {
-		if (!diagramInstanceRef.current || !treeData?.length) return;
 		// Skip animation on initial render — colors are already correct from model build
 		if (!heatmapInitialised.current) {
 			heatmapInitialised.current = true;
 			return;
 		}
+		if (!diagramInstanceRef.current || !treeData?.length) return;
 		animateHeatmapTransition(diagramInstanceRef.current, heatmapEnabled, treeData);
 	}, [heatmapEnabled]);
 	//#endregion

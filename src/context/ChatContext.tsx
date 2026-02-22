@@ -31,6 +31,7 @@ interface Message {
 	files_v2: any[];
 	sync_sources: any[];
 	parent_message_uuid: string;
+	custom_title?: string | null;
 	children: Message[] | null;
 	branchPath?: Record<number, { position: number; hasSiblings: boolean }>;
 }
@@ -194,29 +195,30 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	//#region Chat File Management
 	const addOrUpdateChatFile = async (fileName: string, messages: Message[], setAsCurrent: boolean = true): Promise<void> => {
 		try {
-			const existingFileIndex = chatFiles.findIndex((file) => file.name === fileName);
 			const treeData = buildTree(messages);
 
-			const chatFile: ChatFile = {
-				id: existingFileIndex !== -1 ? chatFiles[existingFileIndex].id : Date.now().toString(),
-				name: fileName,
-				displayName: existingFileIndex !== -1 ? chatFiles[existingFileIndex].displayName : undefined,
-				lastUpdated: new Date().toISOString(),
-				messages,
-				treeData,
-			};
+			let chatFile!: ChatFile;
+
+			setChatFiles((prev) => {
+				const existingIndex = prev.findIndex((file) => file.name === fileName);
+				chatFile = {
+					id: existingIndex !== -1 ? prev[existingIndex].id : Date.now().toString(),
+					name: fileName,
+					displayName: existingIndex !== -1 ? prev[existingIndex].displayName : undefined,
+					lastUpdated: new Date().toISOString(),
+					messages,
+					treeData,
+				};
+				if (existingIndex !== -1) {
+					const updated = [...prev];
+					updated[existingIndex] = chatFile;
+					return updated;
+				}
+				return [...prev, chatFile];
+			});
 
 			// Save to IndexedDB
 			await dbManager.saveChatFile(chatFile);
-
-			// Update local state
-			if (existingFileIndex !== -1) {
-				const updatedFiles = [...chatFiles];
-				updatedFiles[existingFileIndex] = chatFile;
-				setChatFiles(updatedFiles);
-			} else {
-				setChatFiles((prev) => [...prev, chatFile]);
-			}
 
 			if (setAsCurrent) {
 				setCurrentChatFileState(chatFile);

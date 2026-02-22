@@ -630,6 +630,9 @@ div.message-created-at > span > small {
 }
 
 .search-result-sender {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
 	font-weight: 1000;
 	font-size: 15px;
 }
@@ -647,6 +650,17 @@ div.message-created-at > span > small {
 	color: hotpink;
 	font-weight: 500;
 	font-size: 15px;
+}
+
+.search-result-title-badge {
+	color: #ff9100;
+	font-weight: 600;
+	font-size: 11px;
+	border: 1px solid #ff9100;
+	border-radius: 3px;
+	padding: 1px 5px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
 }
 
 .search-result-context {
