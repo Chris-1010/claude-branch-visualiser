@@ -13,6 +13,7 @@ interface SearchResult {
 	message: any;
 	matchText: string;
 	context: string;
+	isTitleMatch?: boolean;
 }
 
 const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
@@ -58,13 +59,28 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 			// Current chat search runs on main thread (fast, single file)
 			const results: SearchResult[] = [];
 			const searchTerm = query.toLowerCase();
+			const seenTitles = new Set<string>();
 
 			allMessages.forEach((message) => {
+				const titleText = (message as any).custom_title || "";
 				const messageText = message.content?.find((c) => c.type === "text")?.text || message.text || "";
 				const thinkingText = message.content?.find((c) => c.type === "thinking")?.thinking || "";
-				const combinedText = messageText + " " + thinkingText;
 
-				if (combinedText.toLowerCase().includes(searchTerm)) {
+				const titleMatch = titleText && titleText.toLowerCase().includes(searchTerm) && !seenTitles.has(titleText);
+				const contentMatch = (messageText + " " + thinkingText).toLowerCase().includes(searchTerm);
+
+				if (!titleMatch && !contentMatch) return;
+
+				if (titleMatch) {
+					seenTitles.add(titleText);
+					const matchIndex = titleText.toLowerCase().indexOf(searchTerm);
+					results.push({
+						message,
+						matchText: titleText.substring(matchIndex, matchIndex + searchTerm.length),
+						context: titleText,
+						isTitleMatch: true,
+					});
+				} else {
 					// Prefer showing context from regular text, fall back to thinking
 					let sourceText = messageText;
 					let matchIndex = messageText.toLowerCase().indexOf(searchTerm);
@@ -346,11 +362,14 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 							{searchResults.map((result, index) => (
 								<div
 									key={`${result.message.uuid}-${index}`}
-									className={`search-result ${index === selectedIndex ? "selected" : ""}`}
+									className={`search-result${index === selectedIndex ? " selected" : ""}`}
 									onClick={() => handleResultClick(result)}
 								>
 									<div className="search-result-sender">
 										<h3 className={result.message.sender.toLowerCase()}>{result.message.sender === "human" ? "You" : "Claude"}</h3>
+										{result.isTitleMatch && (
+											<span className="search-result-title-badge">Title</span>
+										)}
 										{searchMode === "all" && (result.message as any)._chatFileDisplayName && (
 											<span className="search-result-file">{(result.message as any)._chatFileDisplayName}</span>
 										)}
