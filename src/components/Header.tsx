@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Menu } from "lucide-react";
+import { Menu, ExternalLink } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
 
 const Header: React.FC = () => {
@@ -40,19 +40,32 @@ const Header: React.FC = () => {
 			<Menu size={40} className={`sidebar-icon${sidebarOpen ? " active" : ""}`} onClick={toggleSidebar} />
 			<h1>Branch Visualiser</h1>
 			{currentChatFile && (
-				<div className="current-chat-file">
-					<span>Current File</span>
-					<input
-						ref={inputRef}
-						className="current-chat-file-input"
-						type="text"
-						value={editingName}
-						onChange={(e) => setEditingName(e.target.value)}
-						onBlur={handleBlur}
-						onKeyDown={handleKeyDown}
-						title={currentChatFile.displayName || currentChatFile.name}
-					/>
-				</div>
+				<>
+					<div className="current-chat-file">
+						<span>Current File</span>
+						<input
+							ref={inputRef}
+							className="current-chat-file-input"
+							type="text"
+							value={editingName}
+							onChange={(e) => setEditingName(e.target.value)}
+							onBlur={handleBlur}
+							onKeyDown={handleKeyDown}
+							title={currentChatFile.displayName || currentChatFile.name}
+						/>
+					</div>
+					{currentChatFile.uuid && (
+						<a
+							className="current-chat-file-link"
+							href={`https://claude.ai/chat/${currentChatFile.uuid}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							title="Open in Claude.ai"
+						>
+							<ExternalLink size={25} />
+						</a>
+					)}
+				</>
 			)}
 		</header>
 	);

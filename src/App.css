@@ -121,6 +121,29 @@ div.current-chat-file > span {
 	font-size: 0.75rem;
 }
 
+a.current-chat-file-link {
+	position: absolute;
+	top: auto;
+	bottom: auto;
+	right: 20px;
+	padding: 3px;
+	border-radius: 100%;
+	width: 40px;
+	height: 40px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	background-color: transparent;
+	color: black;
+	text-decoration: none;
+}
+
+a.current-chat-file-link:hover {
+	background-color: white;
+	color: rgb(0 217 255);
+	scale: 1.15;
+}
+
 header > div.current-chat-file > input.current-chat-file-input {
 	font-size: 1.25rem;
 	font-weight: 700;
@@ -406,6 +429,11 @@ div.message-created-at > span > small {
 	font-family: "Courier New", Consolas, Monaco, monospace;
 	border-radius: 4px;
 	text-align: left;
+}
+code {
+	background: black;
+    font-family: monospace;
+	padding: 3px;
 }
 
 .code-block {
@@ -954,6 +982,15 @@ div.file-upload > label:active {
 .delete-btn:hover {
 	color: #f44336;
 	border-color: #f44336;
+}
+
+a.open-link-btn {
+	text-decoration: none;
+}
+
+.open-link-btn:hover {
+	color: #ff9100;
+	border-color: #ff9100;
 }
 
 .sidebar-footer {

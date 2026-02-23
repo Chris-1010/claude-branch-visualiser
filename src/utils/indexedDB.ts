@@ -10,6 +10,7 @@ interface ChatFile {
 	id: string;
 	name: string;
 	displayName?: string;
+	uuid?: string;
 	lastUpdated: string;
 	messages: any[];
 	treeData?: any[];

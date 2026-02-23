@@ -1,6 +1,6 @@
 //#region Imports
 import React, { useRef, useState, useEffect } from "react";
-import { Trash2, Upload, FileText, Clock, Eraser, CircleQuestionMark, RefreshCw } from "lucide-react";
+import { Trash2, Upload, FileText, Clock, Eraser, CircleQuestionMark, RefreshCw, ExternalLink } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
 //#endregion
 
@@ -59,7 +59,7 @@ const Sidebar: React.FC = () => {
 				try {
 					const data = JSON.parse(e.target?.result as string);
 					// Extract the chat_messages array from the conversation object
-					await addOrUpdateChatFile(file.name, data.chat_messages || []);
+					await addOrUpdateChatFile(file.name, data.chat_messages || [], true, data.uuid);
 				} catch (error) {
 					console.error("Error parsing JSON:", error);
 					alert("Failed to parse JSON file. Check console for details.");
@@ -81,7 +81,7 @@ const Sidebar: React.FC = () => {
 					const data = JSON.parse(e.target?.result as string);
 					const chatFile = chatFiles.find((cf) => cf.id === chatFileId);
 					if (chatFile) {
-						await addOrUpdateChatFile(chatFile.name, data.chat_messages || []);
+						await addOrUpdateChatFile(chatFile.name, data.chat_messages || [], true, data.uuid);
 					}
 				} catch (error) {
 					console.error("Error parsing JSON:", error);
@@ -183,7 +183,7 @@ const Sidebar: React.FC = () => {
 						}
 
 						// Add or update in local storage (silent - don't switch focus)
-						await addOrUpdateChatFile(fileName, fileData.chat_messages, false);
+						await addOrUpdateChatFile(fileName, fileData.chat_messages, false, fileData.uuid);
 
 						if (existingFile) {
 							updatedCount++;
@@ -411,6 +411,18 @@ const Sidebar: React.FC = () => {
 										onChange={(e) => handleFileUpdate(chatFile.id, e)}
 										style={{ display: "none" }}
 									/>
+									{chatFile.uuid && (
+										<a
+											className="sidebar-action-btn open-link-btn"
+											href={`https://claude.ai/chat/${chatFile.uuid}`}
+											target="_blank"
+											rel="noopener noreferrer"
+											title="Open in Claude.ai"
+											onClick={(e) => e.stopPropagation()}
+										>
+											<ExternalLink size={14} />
+										</a>
+									)}
 									<button
 										className="sidebar-action-btn update-btn"
 										onClick={(e) => {

@@ -48,7 +48,7 @@ interface ChatContextType {
 	heatmapEnabled: boolean;
 	fileserverPassword: string | null;
 	toggleHeatmap: () => void;
-	addOrUpdateChatFile: (fileName: string, messages: Message[], setAsCurrent?: boolean) => Promise<void>;
+	addOrUpdateChatFile: (fileName: string, messages: Message[], setAsCurrent?: boolean, uuid?: string) => Promise<void>;
 	setCurrentChatFile: (chatFile: ChatFile | null) => Promise<void>;
 	setCurrentlySelectedMessage: (message: Message | null) => void;
 	deleteChatFile: (id: string) => Promise<void>;
@@ -193,7 +193,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	//#endregion
 
 	//#region Chat File Management
-	const addOrUpdateChatFile = async (fileName: string, messages: Message[], setAsCurrent: boolean = true): Promise<void> => {
+	const addOrUpdateChatFile = async (fileName: string, messages: Message[], setAsCurrent: boolean = true, uuid?: string): Promise<void> => {
 		try {
 			const treeData = buildTree(messages);
 
@@ -205,6 +205,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 					id: existingIndex !== -1 ? prev[existingIndex].id : Date.now().toString(),
 					name: fileName,
 					displayName: existingIndex !== -1 ? prev[existingIndex].displayName : undefined,
+					uuid: uuid ?? (existingIndex !== -1 ? prev[existingIndex].uuid : undefined),
 					lastUpdated: new Date().toISOString(),
 					messages,
 					treeData,
