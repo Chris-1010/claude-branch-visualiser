@@ -20,5 +20,5 @@ jobs:
             cd ${{ secrets.PROJECT_PATH }}
             git pull origin master
             cd ${{ secrets.PROXY_PROJECT_PATH }}
-            docker-compose build --no-cache ai_branches
-            docker-compose up -d --no-deps --force-recreate ai_branches
+            docker compose build --no-cache ai_branches
+            docker compose up -d --no-deps --force-recreate ai_branches
