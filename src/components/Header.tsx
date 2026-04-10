@@ -3,7 +3,7 @@ import { Menu, ExternalLink } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
 
 const Header: React.FC = () => {
-	const { currentChatFile, sidebarOpen, toggleSidebar, renameChatFile } = useChatContext();
+	const { currentChatFile, sidebarOpen, toggleSidebar, renameChatFile, fileserverPassword, appMode, setAppMode, selectedDirectory } = useChatContext();
 	const [editingName, setEditingName] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
 
@@ -38,8 +38,27 @@ const Header: React.FC = () => {
 	return (
 		<header>
 			<Menu size={40} className={`sidebar-icon${sidebarOpen ? " active" : ""}`} onClick={toggleSidebar} />
+
+			{fileserverPassword && (
+				<div className="mode-toggle">
+					<button
+						className={`mode-toggle-btn${appMode === "claudeai" ? " claudeai active" : " claudecode"}`}
+						onClick={() => setAppMode("claudeai")}
+					>
+						Claude.ai Chats
+					</button>
+					<button
+						className={`mode-toggle-btn${appMode === "claudecode" ? " claudecode active" : " claudeai"}`}
+						onClick={() => setAppMode("claudecode")}
+					>
+						Claude Code Sessions
+					</button>
+				</div>
+			)}
+
 			<h1>Branch Visualiser</h1>
-			{currentChatFile && (
+
+			{appMode === "claudeai" && currentChatFile && (
 				<>
 					<div className="current-chat-file">
 						<span>Current File</span>
@@ -66,6 +85,15 @@ const Header: React.FC = () => {
 						</a>
 					)}
 				</>
+			)}
+
+			{appMode === "claudecode" && selectedDirectory && (
+				<div className="current-chat-file current-directory">
+					<span>Directory</span>
+					<span className="current-directory-path" title={selectedDirectory}>
+						{selectedDirectory}
+					</span>
+				</div>
 			)}
 		</header>
 	);

@@ -1,6 +1,6 @@
 //#region Database Configuration
 const DB_NAME = "claude_branch_visualizer";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const CHAT_FILES_STORE = "chat_files";
 const SETTINGS_STORE = "settings";
 //#endregion
@@ -14,6 +14,13 @@ interface ChatFile {
 	lastUpdated: string;
 	messages: any[];
 	treeData?: any[];
+	platform?: string;
+}
+
+interface ClaudeCodeChatFile extends ChatFile {
+	platform: "CLAUDE_CODE";
+	projectPath: string;
+	gitBranch: string;
 }
 //#endregion
 
@@ -54,6 +61,8 @@ class IndexedDBManager {
 					db.createObjectStore(SETTINGS_STORE, { keyPath: "key" });
 					console.log("Created settings object store");
 				}
+
+				// v2: platform field added — existing records default to undefined (treated as claudeai)
 			};
 		});
 	}
@@ -255,4 +264,4 @@ class IndexedDBManager {
 
 // Export singleton instance
 export const dbManager = new IndexedDBManager();
-export type { ChatFile };
+export type { ChatFile, ClaudeCodeChatFile };

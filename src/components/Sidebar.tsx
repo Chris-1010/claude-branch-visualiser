@@ -1,15 +1,21 @@
 //#region Imports
 import React, { useRef, useState, useEffect } from "react";
-import { Trash2, Upload, FileText, Clock, Eraser, CircleQuestionMark, RefreshCw, ExternalLink } from "lucide-react";
+import { Trash2, Upload, FileText, Clock, Eraser, CircleQuestionMark, RefreshCw, FolderOpen, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
+import type { ClaudeCodeChatFile } from "../utils/indexedDB";
 //#endregion
 
 const Sidebar: React.FC = () => {
 	//#region State and Refs
 	const {
 		chatFiles,
+		claudeAiFiles,
+		claudeCodeFiles,
+		directoryList,
 		currentChatFile,
+		selectedDirectory,
 		setCurrentChatFile,
+		setSelectedDirectory,
 		addOrUpdateChatFile,
 		deleteChatFile,
 		clearAllData,
@@ -20,11 +26,13 @@ const Sidebar: React.FC = () => {
 		setShowHelp,
 		fileserverPassword,
 		setFileserverPassword,
+		appMode,
 	} = useChatContext();
 
 	const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 	const [storageInfo, setStorageInfo] = useState<{ count: number; sizeEstimate: string }>({ count: 0, sizeEstimate: "0MB" });
 	const [isSyncing, setIsSyncing] = useState(false);
+	const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
 	//#endregion
 
 	//#region Load Storage Info
@@ -106,105 +114,108 @@ const Sidebar: React.FC = () => {
 
 		setIsSyncing(true);
 		try {
-			// Fetch file list from fileserver
-			const response = await fetch(
-				`https://files.server-chris.com/projects/claude-branch-visualiser?ls&pw=${encodeURIComponent(fileserverPassword)}`
-			);
-			if (!response.ok) {
-				if (response.status === 401 || response.status === 403) {
-					alert("Invalid password. Please set the correct password in the help section.");
-					await setFileserverPassword(null);
-				}
-				throw new Error(`Failed to fetch file list: ${response.status}`);
-			}
-
-			const data = await response.json();
-			const serverFiles = data.files || [];
-
-			console.log(`[Sync] Found ${serverFiles.length} files on fileserver`);
-
-			// Create a map of existing files by name for quick lookup
-			const existingFilesMap = new Map(chatFiles.map((file) => [file.name, file]));
-
-			let downloadedCount = 0;
-			let updatedCount = 0;
-			let skippedCount = 0;
-
-			// Process each file from the server
-			for (const serverFile of serverFiles) {
-				const fileName = serverFile.href;
-				const serverTimestamp = serverFile.tags[".up_at"];
-
-				// Check if file extension is json
-				if (serverFile.ext !== "json") {
-					console.log(`[Sync] Skipping non-JSON file: ${fileName}`);
-					continue;
-				}
-
-				const existingFile = existingFilesMap.get(fileName);
-
-				// Determine if need to download
-				let shouldDownload = false;
-				if (!existingFile) {
-					console.log(`[Sync] New file detected: ${fileName}`);
-					shouldDownload = true;
-				} else {
-					// Compare timestamps
-					const existingTimestamp = new Date(existingFile.lastUpdated).getTime() / 1000;
-					if (serverTimestamp > existingTimestamp) {
-						console.log(`[Sync] File has updates: ${fileName} (server: ${serverTimestamp}, local: ${existingTimestamp})`);
-						shouldDownload = true;
-					} else {
-						console.log(`[Sync] File up to date: ${fileName}`);
-						skippedCount++;
-					}
-				}
-
-				if (shouldDownload) {
-					try {
-						// Download the file
-						const fileUrl = `https://files.server-chris.com/projects/claude-branch-visualiser/${encodeURIComponent(
-							fileName
-						)}?pw=${encodeURIComponent(fileserverPassword)}&dl`;
-
-						const fileResponse = await fetch(fileUrl);
-
-						if (!fileResponse.ok) {
-							console.error(`[Sync] Failed to download ${fileName}: ${fileResponse.status}`);
-							continue;
-						}
-
-						const fileData = await fileResponse.json();
-
-						// Validate it has chat_messages
-						if (!fileData.chat_messages) {
-							console.warn(`[Sync] File ${fileName} missing chat_messages, skipping`);
-							continue;
-						}
-
-						// Add or update in local storage (silent - don't switch focus)
-						await addOrUpdateChatFile(fileName, fileData.chat_messages, false, fileData.uuid);
-
-						if (existingFile) {
-							updatedCount++;
-							console.log(`[Sync] ✓ Updated: ${fileName}`);
-						} else {
-							downloadedCount++;
-							console.log(`[Sync] ✓ Downloaded: ${fileName}`);
-						}
-					} catch (error) {
-						console.error(`[Sync] Error processing ${fileName}:`, error);
-					}
-				}
-			}
-
-			console.log(`[Sync] Complete - Downloaded: ${downloadedCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`);
+			await syncDirectory("", fileserverPassword);
+			await syncDirectory("claude-code/", fileserverPassword);
+			console.log("[Sync] All syncs complete");
 		} catch (error) {
 			console.error("[Sync] Failed:", error);
 			alert("Sync failed. Check console for details.");
 		} finally {
 			setIsSyncing(false);
 		}
+	};
+
+	const syncDirectory = async (subDir: string, password: string) => {
+		const baseUrl = `https://files.server-chris.com/projects/claude-branch-visualiser/${subDir}`;
+		const isClaudeCode = subDir === "claude-code/";
+
+		const response = await fetch(`${baseUrl}?ls&pw=${encodeURIComponent(password)}`);
+		if (!response.ok) {
+			if (response.status === 401 || response.status === 403) {
+				alert("Invalid password. Please set the correct password in the help section.");
+				await setFileserverPassword(null);
+			}
+			throw new Error(`Failed to fetch file list from ${subDir}: ${response.status}`);
+		}
+
+		const data = await response.json();
+		const serverFiles = data.files || [];
+
+		console.log(`[Sync] Found ${serverFiles.length} files in ${subDir || "root"}`);
+
+		// Create a map of existing files by name for quick lookup
+		const existingFilesMap = new Map(chatFiles.map((file) => [file.name, file]));
+
+		let downloadedCount = 0;
+		let updatedCount = 0;
+		let skippedCount = 0;
+
+		for (const serverFile of serverFiles) {
+			const fileName = serverFile.href;
+			const serverTimestamp = serverFile.tags[".up_at"];
+
+			if (serverFile.ext !== "json") {
+				console.log(`[Sync] Skipping non-JSON file: ${fileName}`);
+				continue;
+			}
+
+			// For Claude Code files, store with the subdir prefix to avoid name collisions
+			const storeKey = isClaudeCode ? `claude-code/${fileName}` : fileName;
+			const existingFile = existingFilesMap.get(storeKey);
+
+			let shouldDownload = false;
+			if (!existingFile) {
+				console.log(`[Sync] New file detected: ${storeKey}`);
+				shouldDownload = true;
+			} else {
+				const existingTimestamp = new Date(existingFile.lastUpdated).getTime() / 1000;
+				if (serverTimestamp > existingTimestamp) {
+					console.log(`[Sync] File has updates: ${storeKey}`);
+					shouldDownload = true;
+				} else {
+					skippedCount++;
+				}
+			}
+
+			if (shouldDownload) {
+				try {
+					const fileUrl = `${baseUrl}${encodeURIComponent(fileName)}?pw=${encodeURIComponent(password)}&dl`;
+					const fileResponse = await fetch(fileUrl);
+
+					if (!fileResponse.ok) {
+						console.error(`[Sync] Failed to download ${storeKey}: ${fileResponse.status}`);
+						continue;
+					}
+
+					const fileData = await fileResponse.json();
+
+					if (!fileData.chat_messages) {
+						console.warn(`[Sync] File ${storeKey} missing chat_messages, skipping`);
+						continue;
+					}
+
+					if (isClaudeCode) {
+						const projectPath = fileData.project?.path || "unknown";
+						const gitBranch = fileData.project?.git_branch || "HEAD";
+						await addOrUpdateChatFile(storeKey, fileData.chat_messages, false, fileData.uuid, "CLAUDE_CODE", projectPath, gitBranch);
+					} else {
+						await addOrUpdateChatFile(storeKey, fileData.chat_messages, false, fileData.uuid);
+					}
+
+					if (existingFile) {
+						updatedCount++;
+						console.log(`[Sync] ✓ Updated: ${storeKey}`);
+					} else {
+						downloadedCount++;
+						console.log(`[Sync] ✓ Downloaded: ${storeKey}`);
+					}
+				} catch (error) {
+					console.error(`[Sync] Error processing ${storeKey}:`, error);
+				}
+			}
+		}
+
+		console.log(`[Sync] ${subDir || "root"} — Downloaded: ${downloadedCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`);
 	};
 	//#endregion
 
@@ -237,10 +248,13 @@ const Sidebar: React.FC = () => {
 		}
 
 		try {
-			// Delete from fileserver if password is set (uses original name for URL)
 			if (fileserverPassword) {
-				const deleteUrl = `https://files.server-chris.com/projects/claude-branch-visualiser/${encodeURIComponent(
-					originalName
+				// Determine fileserver path: claude-code/ prefix files live in the subdirectory
+				const isCC = originalName.startsWith("claude-code/");
+				const serverFileName = isCC ? originalName.slice("claude-code/".length) : originalName;
+				const subDir = isCC ? "claude-code/" : "";
+				const deleteUrl = `https://files.server-chris.com/projects/claude-branch-visualiser/${subDir}${encodeURIComponent(
+					serverFileName
 				)}?delete&pw=${encodeURIComponent(fileserverPassword)}`;
 
 				const response = await fetch(deleteUrl, { method: "POST" });
@@ -257,7 +271,6 @@ const Sidebar: React.FC = () => {
 				console.log(`[Delete] ✓ Deleted from fileserver: ${originalName}`);
 			}
 
-			// Delete locally
 			await deleteChatFile(id);
 		} catch (error) {
 			console.error("Failed to delete file:", error);
@@ -271,7 +284,6 @@ const Sidebar: React.FC = () => {
 		try {
 			const date = new Date(dateString);
 
-			// Check if date is valid
 			if (isNaN(date.getTime())) {
 				return "Invalid date";
 			}
@@ -286,7 +298,7 @@ const Sidebar: React.FC = () => {
 			const ampm = hours >= 12 ? "pm" : "am";
 
 			hours = hours % 12;
-			hours = hours ? hours : 12; // 0 should be 12
+			hours = hours ? hours : 12;
 
 			return `${day} ${month} ${year} ${hours}:${minutes}${ampm}`;
 		} catch (error) {
@@ -329,6 +341,18 @@ const Sidebar: React.FC = () => {
 			return dateString;
 		}
 	};
+
+	const toggleDirExpanded = (dir: string) => {
+		setExpandedDirs((prev) => {
+			const next = new Set(prev);
+			if (next.has(dir)) {
+				next.delete(dir);
+			} else {
+				next.add(dir);
+			}
+			return next;
+		});
+	};
 	//#endregion
 
 	if (isLoading) {
@@ -341,21 +365,9 @@ const Sidebar: React.FC = () => {
 		);
 	}
 
-	return (
-		<div className={`sidebar${sidebarOpen ? " active" : ""}`}>
-			<div className="sidebar-header">
-				<h2>Chat Files</h2>
-				<div className="sidebar-header-actions">
-					{fileserverPassword && (
-						<button className="sidebar-header-btn sync" onClick={syncFromFileserver} disabled={isSyncing} title="Sync from fileserver">
-							<RefreshCw size={16} className={isSyncing ? "spinning" : ""} />
-						</button>
-					)}
-					<button className="sidebar-header-btn erase" onClick={handleClearAllData} title="Clear all data">
-						<Eraser size={16} />
-					</button>
-				</div>
-			</div>
+	//#region Claude.ai mode render
+	const renderClaudeAiMode = () => (
+		<>
 			<div className="file-upload">
 				<input id="upload" type="file" accept=".json" onChange={handleFileUpload} />
 				<label htmlFor="upload" className="upload-button">
@@ -370,7 +382,7 @@ const Sidebar: React.FC = () => {
 						<span>Syncing...</span>
 					</div>
 				)}
-				{chatFiles.length === 0 ? (
+				{claudeAiFiles.length === 0 ? (
 					<div className="sidebar-empty">
 						<FileText size={48} />
 						<p>No chat files loaded</p>
@@ -379,7 +391,7 @@ const Sidebar: React.FC = () => {
 					</div>
 				) : (
 					<>
-						{[...chatFiles].sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).map((chatFile) => (
+						{[...claudeAiFiles].sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()).map((chatFile) => (
 							<div
 								key={chatFile.id}
 								className={`sidebar-item ${currentChatFile?.id === chatFile.id ? "active" : ""}`}
@@ -456,6 +468,133 @@ const Sidebar: React.FC = () => {
 					</>
 				)}
 			</div>
+		</>
+	);
+	//#endregion
+
+	//#region Claude Code mode render
+	const renderClaudeCodeMode = () => {
+		if (directoryList.length === 0) {
+			return (
+				<div className="sidebar-content">
+					{isSyncing && (
+						<div className="sidebar-sync-overlay">
+							<RefreshCw size={40} className="spinning" />
+							<span>Syncing...</span>
+						</div>
+					)}
+					<div className="sidebar-empty">
+						<FolderOpen size={48} />
+						<p>No Claude Code sessions</p>
+						<p className="sidebar-empty-hint">Sync from fileserver to load sessions</p>
+						<CircleQuestionMark className="help" size={30} onClick={() => setShowHelp(!showHelp)} />
+					</div>
+				</div>
+			);
+		}
+
+		return (
+			<div className="sidebar-content">
+				{isSyncing && (
+					<div className="sidebar-sync-overlay">
+						<RefreshCw size={40} className="spinning" />
+						<span>Syncing...</span>
+					</div>
+				)}
+				{directoryList.map((dir) => {
+					const sessionsInDir = [...claudeCodeFiles]
+						.filter((f) => f.projectPath === dir)
+						.sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
+					const isExpanded = expandedDirs.has(dir);
+					const isActive = selectedDirectory === dir;
+
+					return (
+						<div key={dir} className={`sidebar-dir${isActive ? " active" : ""}`}>
+							<div
+								className="sidebar-dir-header"
+								onClick={() => {
+									setSelectedDirectory(dir);
+									if (!isExpanded) toggleDirExpanded(dir);
+								}}
+							>
+								<button
+									className="sidebar-dir-expand-btn"
+									onClick={(e) => {
+										e.stopPropagation();
+										toggleDirExpanded(dir);
+									}}
+									title={isExpanded ? "Collapse" : "Expand"}
+								>
+									{isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+								</button>
+								<FolderOpen size={16} />
+								<span className="sidebar-dir-path" title={dir}>{dir}</span>
+								<span className="sidebar-dir-count">{sessionsInDir.length}</span>
+							</div>
+
+							{isExpanded && (
+								<div className="sidebar-dir-sessions">
+									{sessionsInDir.map((session: ClaudeCodeChatFile) => (
+										<div key={session.id} className="sidebar-session-item">
+											<div className="sidebar-session-info">
+												<span className="sidebar-session-name" title={session.name}>{session.name}</span>
+												<div className="sidebar-item-updated">
+													<Clock size={10} />
+													<span title={formatTimestamp(session.lastUpdated)}>
+														{getRelativeTimeDescription(session.lastUpdated)}
+													</span>
+												</div>
+												{session.gitBranch && session.gitBranch !== "HEAD" && (
+													<span className="sidebar-session-branch" title={`Git branch: ${session.gitBranch}`}>
+														{session.gitBranch}
+													</span>
+												)}
+											</div>
+											<button
+												className="sidebar-action-btn delete-btn"
+												onClick={(e) => {
+													e.stopPropagation();
+													handleDeleteChatFile(session.id, session.name, session.name, e);
+												}}
+												title="Delete session"
+											>
+												<Trash2 size={12} />
+											</button>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+					);
+				})}
+
+				<div className="sidebar-footer">
+					<div className="sidebar-storage-info">
+						Storage: {storageInfo.sizeEstimate} • {claudeCodeFiles.length} session{claudeCodeFiles.length !== 1 ? "s" : ""}
+					</div>
+					<CircleQuestionMark className="help" size={30} onClick={() => setShowHelp(!showHelp)} />
+				</div>
+			</div>
+		);
+	};
+	//#endregion
+
+	return (
+		<div className={`sidebar${sidebarOpen ? " active" : ""}`}>
+			<div className="sidebar-header">
+				<h2>{appMode === "claudecode" ? "Directories" : "Chat Files"}</h2>
+				<div className="sidebar-header-actions">
+					{fileserverPassword && (
+						<button className="sidebar-header-btn sync" onClick={syncFromFileserver} disabled={isSyncing} title="Sync from fileserver">
+							<RefreshCw size={16} className={isSyncing ? "spinning" : ""} />
+						</button>
+					)}
+					<button className="sidebar-header-btn erase" onClick={handleClearAllData} title="Clear all data">
+						<Eraser size={16} />
+					</button>
+				</div>
+			</div>
+			{appMode === "claudecode" ? renderClaudeCodeMode() : renderClaudeAiMode()}
 		</div>
 	);
 };

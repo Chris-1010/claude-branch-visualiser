@@ -5,14 +5,36 @@ import { useChatContext } from "../context/ChatContext";
 import Help from "./Help";
 //#endregion
 
+// 10 branch colours that suit white text on dark backgrounds
+const BRANCH_COLORS = [
+	"#5c6bc0", // indigo
+	"#26a69a", // teal
+	"#ab47bc", // purple
+	"#ef5350", // red
+	"#29b6f6", // light blue
+	"#66bb6a", // green
+	"#ffa726", // amber
+	"#ec407a", // pink
+	"#8d6e63", // brown
+	"#78909c", // blue-grey
+];
+
+function getBranchColor(branch: string, branchIndex: Map<string, number>): string {
+	if (!branchIndex.has(branch)) {
+		branchIndex.set(branch, branchIndex.size % BRANCH_COLORS.length);
+	}
+	return BRANCH_COLORS[branchIndex.get(branch)!];
+}
+
 interface ChatTreeRef {
 	scrollToMessage: (messageUuid: string) => void;
 }
 
 const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
-	const { treeData, currentlySelectedMessage, setCurrentlySelectedMessage, heatmapEnabled } = useChatContext();
+	const { treeData, currentlySelectedMessage, setCurrentlySelectedMessage, heatmapEnabled, appMode } = useChatContext();
 	const diagramInstanceRef = useRef<go.Diagram | null>(null);
 	const diagramRef = useRef<HTMLDivElement>(null);
+	const isProgrammaticSelectionRef = useRef(false);
 
 	//#region GoJS Initialization
 	useEffect(() => {
@@ -48,17 +70,17 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 				textAlign: "center",
 				visible: false,
 			})
-				.bind("text", "customTitle")
-				.bind("visible", "customTitle", (title) => !!title),
+				.bind("text", "sessionLabel")
+				.bind("visible", "sessionLabel", (label) => !!label),
 			new go.Panel("Auto").add(
 				new go.Shape("RoundedRectangle", {
 					name: "nodeShape",
-					strokeWidth: 1,
+					strokeWidth: 2,
 					stroke: "#555",
 					fill: "#333",
 				})
 					.bind("fill", "color")
-					.bind("stroke", "isSelected", (sel) => (sel ? "#ff6f00" : "#555")),
+					.bind("stroke", "borderColor"),
 				new go.TextBlock({
 					margin: 8,
 					font: "12px sans-serif",
@@ -82,9 +104,12 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 
 		// Handle selection changes without triggering scroll
 		myDiagram.addDiagramListener("ChangedSelection", (_) => {
+			if (isProgrammaticSelectionRef.current) return;
 			const selectedNode = myDiagram.selection.first();
 			if (selectedNode && selectedNode.data) {
 				setCurrentlySelectedMessage(selectedNode.data.originalMessage);
+			} else {
+				setCurrentlySelectedMessage(null);
 			}
 		});
 
@@ -234,23 +259,38 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 		const nodes: any[] = [];
 		const links: any[] = [];
 		const timeRange = heatmapEnabled ? getTimestampRange(treeData) : null;
+		const isClaudeCodeMode = appMode === "claudecode";
+
+		// Build branch colour index for Claude Code mode
+		const branchColorIndex = new Map<string, number>();
 
 		const processNode = (node: any, parentKey?: string) => {
 			const color = heatmapEnabled && timeRange
 				? getHeatmapColor(node.created_at, timeRange.minTime, timeRange.maxTime)
 				: node.sender === "human" ? "#444" : "#ff6f00";
 
+			// Border colour: branch colour in CC mode (when _gitBranch is set), else selection-only
+			let borderColor = "#555";
+			if (isClaudeCodeMode && node._gitBranch) {
+				borderColor = getBranchColor(node._gitBranch, branchColorIndex);
+			}
+
+			// Session label: only on root nodes in CC mode
+			const isRoot = !parentKey;
+			const sessionLabel = (isClaudeCodeMode && isRoot && node._sessionName) ? node._sessionName : null;
+
 			const nodeData = {
 				key: node.uuid,
 				text: getNodeText(node),
 				color,
+				borderColor,
 				isSelected: currentlySelectedMessage?.uuid === node.uuid,
 				customTitle: node.custom_title || null,
+				sessionLabel,
 				originalMessage: node,
 			};
 			nodes.push(nodeData);
 
-			// Link to parent if exists
 			if (parentKey) {
 				links.push({ from: parentKey, to: node.uuid });
 			}
@@ -308,6 +348,7 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 
 		const currentScrollPosition = diagramInstanceRef.current.position.copy();
 
+		isProgrammaticSelectionRef.current = true;
 		diagramInstanceRef.current.clearSelection();
 		if (currentlySelectedMessage) {
 			diagramInstanceRef.current.nodes.each((node) => {
@@ -316,6 +357,7 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 				}
 			});
 		}
+		isProgrammaticSelectionRef.current = false;
 
 		// Restore scroll position immediately after selection change
 		requestAnimationFrame(() => {
@@ -361,7 +403,7 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 					style={{
 						width: "100%",
 						height: "100%",
-						backgroundColor: "#1a1a1a",
+						backgroundColor: `${appMode === "claudeai" ? "#1a1a1a" : "#000000"}`,
 					}}
 				/>
 			</div>

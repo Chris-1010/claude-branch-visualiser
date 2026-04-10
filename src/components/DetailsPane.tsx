@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useChatContext } from "../context/ChatContext";
 import MessageContentRenderer from "../utils/MessageContentRenderer";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, GitBranch } from "lucide-react";
 
 const DetailsPane: React.FC = () => {
-	const { currentlySelectedMessage } = useChatContext();
+	const { currentlySelectedMessage, appMode, selectedDirectory } = useChatContext();
 	const [thinkingExpanded, setThinkingExpanded] = useState(false);
 
 	if (!currentlySelectedMessage) {
@@ -21,6 +21,10 @@ const DetailsPane: React.FC = () => {
 
 	const branchPath = (currentlySelectedMessage as any).branchPath || {};
 	const pathKeys = Object.keys(branchPath);
+
+	// Claude Code git branch: only show if directory has multiple distinct branches
+	const gitBranch = (currentlySelectedMessage as any)._gitBranch as string | undefined;
+	const showGitBranch = appMode === "claudecode" && !!gitBranch && !!selectedDirectory;
 
 	//#region Date Formatting Helpers
 	const formatCreatedDate = (dateString: string): string => {
@@ -97,6 +101,13 @@ const DetailsPane: React.FC = () => {
 							);
 						})}
 					</div>
+				</div>
+			)}
+
+			{showGitBranch && (
+				<div className="message-git-branch">
+					<GitBranch size={14} />
+					<span>{gitBranch}</span>
 				</div>
 			)}
 

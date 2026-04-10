@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { dbManager, type ChatFile } from "../utils/indexedDB";
+import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
+import { dbManager, type ChatFile, type ClaudeCodeChatFile } from "../utils/indexedDB";
 
 //#region Interfaces
 interface ThinkingSummary {
@@ -34,7 +34,13 @@ interface Message {
 	custom_title?: string | null;
 	children: Message[] | null;
 	branchPath?: Record<number, { position: number; hasSiblings: boolean }>;
+	// Claude Code session metadata (attached during tree build for CC sessions)
+	_sessionName?: string;
+	_gitBranch?: string;
+	_sessionId?: string;
 }
+
+type AppMode = "claudeai" | "claudecode";
 
 interface ChatContextType {
 	chatFiles: ChatFile[];
@@ -47,8 +53,13 @@ interface ChatContextType {
 	showHelp: boolean;
 	heatmapEnabled: boolean;
 	fileserverPassword: string | null;
+	appMode: AppMode;
+	selectedDirectory: string | null;
+	claudeAiFiles: ChatFile[];
+	claudeCodeFiles: ClaudeCodeChatFile[];
+	directoryList: string[];
 	toggleHeatmap: () => void;
-	addOrUpdateChatFile: (fileName: string, messages: Message[], setAsCurrent?: boolean, uuid?: string) => Promise<void>;
+	addOrUpdateChatFile: (fileName: string, messages: Message[], setAsCurrent?: boolean, uuid?: string, platform?: string, projectPath?: string, gitBranch?: string) => Promise<void>;
 	setCurrentChatFile: (chatFile: ChatFile | null) => Promise<void>;
 	setCurrentlySelectedMessage: (message: Message | null) => void;
 	deleteChatFile: (id: string) => Promise<void>;
@@ -59,8 +70,17 @@ interface ChatContextType {
 	setShowHelp: (shown: boolean) => void;
 	setFileserverPassword: (password: string | null) => Promise<void>;
 	renameChatFile: (id: string, newDisplayName: string) => Promise<void>;
+	setAppMode: (mode: AppMode) => void;
+	setSelectedDirectory: (dir: string | null) => void;
 }
 //#endregion
+
+const SYSTEM_MESSAGE_PREFIXES = ["<local-command-caveat>", "<local-command-stdout>", "<command-name>"];
+
+export const isSystemMessage = (msg: { content?: { type: string; text?: string }[]; text?: string }): boolean => {
+	const text = msg.content?.find((c) => c.type === "text")?.text || msg.text || "";
+	return SYSTEM_MESSAGE_PREFIXES.some((prefix) => text.trimStart().startsWith(prefix));
+};
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
@@ -82,25 +102,60 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	const [showHelp, setShowHelp] = useState<boolean>(false);
 	const [heatmapEnabled, setHeatmapEnabled] = useState<boolean>(false);
 	const [fileserverPassword, setFileserverPasswordState] = useState<string | null>(null);
+	const [appMode, setAppModeState] = useState<AppMode>("claudeai");
+	const [selectedDirectory, setSelectedDirectoryState] = useState<string | null>(null);
+	//#endregion
+
+	//#region Derived State
+	const claudeAiFiles = chatFiles.filter((f) => f.platform !== "CLAUDE_CODE");
+	const claudeCodeFiles = chatFiles.filter((f): f is ClaudeCodeChatFile => f.platform === "CLAUDE_CODE");
+	const directoryList = [...new Set(claudeCodeFiles.map((f) => f.projectPath))].sort();
 	//#endregion
 
 	//#region Tree Building Logic
 	const buildTree = (messages: Message[]): Message[] => {
-		const messageMap = new Map<string, Message>();
-		const roots: Message[] = []; // Root messages
+		// Filter out system messages, but track their parent→child relationships
+		// so we can reparent their children to skip over them
+		const systemUuids = new Set<string>();
+		const systemParentMap = new Map<string, string>(); // systemUuid → its parent_message_uuid
 
-		// Build parent-child relationships
 		messages.forEach((msg) => {
-			// Create lookup map with children array - parent to child mapping
-			messageMap.set(msg.uuid, { ...msg, children: [] });
+			if (isSystemMessage(msg)) {
+				systemUuids.add(msg.uuid);
+				systemParentMap.set(msg.uuid, msg.parent_message_uuid);
+			}
+		});
 
-			if (msg.parent_message_uuid && messageMap.has(msg.parent_message_uuid)) {
-				const parent = messageMap.get(msg.parent_message_uuid)!;
+		// Resolve the effective parent of a message, skipping over any system messages
+		const resolveParent = (parentUuid: string): string => {
+			if (systemUuids.has(parentUuid)) {
+				return resolveParent(systemParentMap.get(parentUuid)!);
+			}
+			return parentUuid;
+		};
+
+		const filteredMessages = messages.filter((msg) => !systemUuids.has(msg.uuid));
+
+		const messageMap = new Map<string, Message>();
+		const roots: Message[] = [];
+
+		// First pass: populate messageMap with all non-system messages
+		filteredMessages.forEach((msg) => {
+			messageMap.set(msg.uuid, { ...msg, children: [] });
+		});
+
+		// Second pass: build parent-child relationships (now all parents are in the map)
+		filteredMessages.forEach((msg) => {
+			const effectiveParentUuid = systemUuids.has(msg.parent_message_uuid)
+				? resolveParent(msg.parent_message_uuid)
+				: msg.parent_message_uuid;
+
+			if (effectiveParentUuid && messageMap.has(effectiveParentUuid)) {
+				const parent = messageMap.get(effectiveParentUuid)!;
 				const child = messageMap.get(msg.uuid)!;
 				parent.children?.push(child);
 			} else {
-				const root = messageMap.get(msg.uuid)!;
-				roots.push(root);
+				roots.push(messageMap.get(msg.uuid)!);
 			}
 		});
 
@@ -148,6 +203,34 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 	//#endregion
 
+	//#region Claude Code Combined Tree
+	// Build a combined tree for a selected directory (all sessions as separate root chains)
+	const buildDirectoryTree = (directory: string): Message[] => {
+		const sessionsInDir = claudeCodeFiles.filter((f) => f.projectPath === directory);
+
+		// Determine if there are multiple distinct git branches in this directory
+		const branchSet = new Set(sessionsInDir.map((f) => f.gitBranch));
+		const hasMultipleBranches = branchSet.size > 1;
+
+		const allRoots: Message[] = [];
+
+		for (const session of sessionsInDir) {
+			// Tag every message in the session with metadata before building
+			const taggedMessages: Message[] = session.messages.map((msg) => ({
+				...msg,
+				_sessionName: session.displayName || session.name,
+				_gitBranch: hasMultipleBranches ? session.gitBranch : undefined,
+				_sessionId: session.id,
+			}));
+
+			const sessionRoots = buildTree(taggedMessages);
+			allRoots.push(...sessionRoots);
+		}
+
+		return allRoots;
+	};
+	//#endregion
+
 	//#region Load Initial Data
 	useEffect(() => {
 		const loadInitialData = async () => {
@@ -192,8 +275,36 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	}, []);
 	//#endregion
 
+	//#region Active Tree Data
+	// Stable key representing the sessions in the selected directory — rebuilds only when files change
+	const dirSessionsKey = useMemo(() => {
+		if (appMode !== "claudecode" || !selectedDirectory) return "";
+		return claudeCodeFiles
+			.filter((f) => f.projectPath === selectedDirectory)
+			.map((f) => `${f.id}:${f.lastUpdated}`)
+			.join("|");
+	}, [appMode, selectedDirectory, claudeCodeFiles]);
+
+	const activeTreeData = useMemo(() => {
+		if (appMode === "claudecode") {
+			if (!selectedDirectory) return [];
+			return buildDirectoryTree(selectedDirectory);
+		}
+		return currentChatFile?.treeData || [];
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [appMode, selectedDirectory, dirSessionsKey, currentChatFile?.treeData]);
+	//#endregion
+
 	//#region Chat File Management
-	const addOrUpdateChatFile = async (fileName: string, messages: Message[], setAsCurrent: boolean = true, uuid?: string): Promise<void> => {
+	const addOrUpdateChatFile = async (
+		fileName: string,
+		messages: Message[],
+		setAsCurrent: boolean = true,
+		uuid?: string,
+		platform?: string,
+		projectPath?: string,
+		gitBranch?: string
+	): Promise<void> => {
 		try {
 			const treeData = buildTree(messages);
 
@@ -201,7 +312,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 			setChatFiles((prev) => {
 				const existingIndex = prev.findIndex((file) => file.name === fileName);
-				chatFile = {
+				const base: ChatFile = {
 					id: existingIndex !== -1 ? prev[existingIndex].id : Date.now().toString(),
 					name: fileName,
 					displayName: existingIndex !== -1 ? prev[existingIndex].displayName : undefined,
@@ -209,7 +320,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 					lastUpdated: new Date().toISOString(),
 					messages,
 					treeData,
+					platform: platform ?? (existingIndex !== -1 ? prev[existingIndex].platform : undefined),
 				};
+
+				if (platform === "CLAUDE_CODE" && projectPath) {
+					(base as ClaudeCodeChatFile).projectPath = projectPath;
+					(base as ClaudeCodeChatFile).gitBranch = gitBranch || "HEAD";
+				}
+
+				chatFile = base;
+
 				if (existingIndex !== -1) {
 					const updated = [...prev];
 					updated[existingIndex] = chatFile;
@@ -221,10 +341,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 			// Save to IndexedDB
 			await dbManager.saveChatFile(chatFile);
 
-			if (setAsCurrent) {
+			if (platform !== "CLAUDE_CODE" && setAsCurrent) {
 				setCurrentChatFileState(chatFile);
 				setCurrentlySelectedMessage(null);
-			} else if (currentChatFile && chatFile.id === currentChatFile.id) {
+			} else if (platform !== "CLAUDE_CODE" && currentChatFile && chatFile.id === currentChatFile.id) {
 				// If we're silently updating the currently viewed file, refresh it in place
 				setCurrentChatFileState(chatFile);
 			}
@@ -329,6 +449,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	};
 	//#endregion
 
+	//#region Mode Management
+	const setAppMode = (mode: AppMode) => {
+		setAppModeState(mode);
+		setCurrentlySelectedMessage(null);
+	};
+
+	const setSelectedDirectory = (dir: string | null) => {
+		setSelectedDirectoryState(dir);
+		setCurrentlySelectedMessage(null);
+	};
+	//#endregion
+
 	const toggleSidebar = () => {
 		setSidebarOpen((prev) => !prev);
 	};
@@ -342,14 +474,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 			value={{
 				chatFiles,
 				currentChatFile,
-				allMessages: currentChatFile?.messages || [],
-				treeData: currentChatFile?.treeData || [],
+				allMessages: appMode === "claudeai"
+				? (currentChatFile?.messages || []).filter((m) => !isSystemMessage(m))
+				: (selectedDirectory ? claudeCodeFiles.filter((f) => f.projectPath === selectedDirectory).flatMap((f) => f.messages).filter((m) => !isSystemMessage(m)) : []),
+				treeData: activeTreeData,
 				currentlySelectedMessage,
 				isLoading,
 				sidebarOpen,
 				showHelp,
 				heatmapEnabled,
 				fileserverPassword,
+				appMode,
+				selectedDirectory,
+				claudeAiFiles,
+				claudeCodeFiles,
+				directoryList,
 				toggleHeatmap,
 				addOrUpdateChatFile,
 				setCurrentChatFile,
@@ -362,6 +501,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				setShowHelp,
 				setFileserverPassword,
 				renameChatFile,
+				setAppMode,
+				setSelectedDirectory,
 			}}
 		>
 			{children}

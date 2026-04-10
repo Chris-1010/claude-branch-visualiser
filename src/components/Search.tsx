@@ -1,7 +1,7 @@
 //#region Imports
 import React, { useState, useEffect, useRef } from "react";
 import { Search as SearchIcon, X, Loader } from "lucide-react";
-import { useChatContext } from "../context/ChatContext";
+import { useChatContext, isSystemMessage } from "../context/ChatContext";
 import type { ChatTreeRef } from "./ChatTree";
 //#endregion
 
@@ -24,7 +24,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 	const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 	const [selectedIndex, setSelectedIndex] = useState(-1);
-	const { allMessages, chatFiles, currentChatFile, setCurrentChatFile, setCurrentlySelectedMessage, setSidebarOpen } = useChatContext();
+	const { allMessages, chatFiles, claudeCodeFiles, setCurrentChatFile, setSelectedDirectory, setAppMode, setCurrentlySelectedMessage, setSidebarOpen } = useChatContext();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const workerRef = useRef<Worker | null>(null);
@@ -123,11 +123,11 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 			// "All Chats" search runs in Web Worker
 			setIsSearching(true);
 
-			// Send only the data the worker needs (name + messages)
+			// Send only the data the worker needs (name + messages), excluding system messages
 			const workerData = chatFiles.map((cf) => ({
 				name: cf.name,
 				displayName: cf.displayName || cf.name,
-				messages: cf.messages,
+				messages: cf.messages.filter((m) => !isSystemMessage(m)),
 			}));
 
 			workerRef.current?.postMessage({ chatFiles: workerData, query });
@@ -208,13 +208,25 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 
 	const handleResultClick = async (result: SearchResult) => {
 		if (searchMode === "all") {
-			// Switch to the correct chat file first
 			const fileName = (result.message as any)._chatFileName;
 			const targetChatFile = chatFiles.find((cf) => cf.name === fileName);
 
-			if (targetChatFile && targetChatFile.id !== currentChatFile?.id) {
+			if (targetChatFile?.platform === "CLAUDE_CODE") {
+				// Navigate to the directory containing this session, switching mode if needed
+				const ccFile = claudeCodeFiles.find((f) => f.name === fileName);
+				if (ccFile) {
+					setAppMode("claudecode");
+					setSelectedDirectory(ccFile.projectPath);
+					setTimeout(() => {
+						setCurrentlySelectedMessage(result.message);
+						if (chatTreeRef.current) {
+							chatTreeRef.current.scrollToMessage(result.message.uuid);
+						}
+					}, 100);
+				}
+			} else if (targetChatFile) {
+				setAppMode("claudeai");
 				await setCurrentChatFile(targetChatFile);
-				// Small delay to let the tree render
 				setTimeout(() => {
 					setCurrentlySelectedMessage(result.message);
 					if (chatTreeRef.current) {
@@ -228,7 +240,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 				}
 			}
 		} else {
-			// Original behaviour
+			// Current chat / current directory search
 			setCurrentlySelectedMessage(result.message);
 			if (chatTreeRef.current) {
 				chatTreeRef.current.scrollToMessage(result.message.uuid);
