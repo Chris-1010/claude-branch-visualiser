@@ -279,6 +279,43 @@ div.content {
 	right: 0;
 }
 
+/*#region ## Header */
+.details-pane-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0;
+}
+
+.details-pane-header > h3 {
+	margin: 0;
+}
+
+.copy-conversation-btn {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 10px;
+	background: transparent;
+	border: 1px solid #555;
+	border-radius: 5px;
+	color: #ccc;
+	font-size: 12px;
+	cursor: pointer;
+	transition: 0.2s ease;
+}
+
+.copy-conversation-btn:hover {
+	border-color: #ff9100;
+	color: #ff9100;
+}
+
+.copy-conversation-btn.copied {
+	border-color: #4caf50;
+	color: #4caf50;
+}
+/*#endregion ## Header */
+
 /*#region ## BranchPath */
 .details-pane > div.message-branch-path {
 	display: flex;

@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useChatContext } from "../context/ChatContext";
 import MessageContentRenderer from "../utils/MessageContentRenderer";
-import { ChevronDown, ChevronRight, GitBranch } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, GitBranch } from "lucide-react";
 
 const DetailsPane: React.FC = () => {
-	const { currentlySelectedMessage, appMode, selectedDirectory } = useChatContext();
+	const { currentlySelectedMessage, appMode, selectedDirectory, allMessages } = useChatContext();
 	const [thinkingExpanded, setThinkingExpanded] = useState(false);
+	const [copyFeedback, setCopyFeedback] = useState(false);
 
 	if (!currentlySelectedMessage) {
 		return <div className="details-pane"></div>;
@@ -25,6 +26,33 @@ const DetailsPane: React.FC = () => {
 	// Claude Code git branch: only show if directory has multiple distinct branches
 	const gitBranch = (currentlySelectedMessage as any)._gitBranch as string | undefined;
 	const showGitBranch = appMode === "claudecode" && !!gitBranch && !!selectedDirectory;
+	const showCopyConversation = appMode === "claudecode";
+
+	//#region Copy Conversation
+	const copyConversation = () => {
+		const messageMap = new Map(allMessages.map((m) => [m.uuid, m]));
+
+		// Walk from current message up to root, collecting the ancestor chain
+		const chain: typeof allMessages = [];
+		let current: (typeof allMessages)[0] | undefined = currentlySelectedMessage ?? undefined;
+		while (current) {
+			chain.unshift(current);
+			current = current.parent_message_uuid ? messageMap.get(current.parent_message_uuid) : undefined;
+		}
+
+		const lines: string[] = [];
+		for (const msg of chain) {
+			const label = msg.sender === "human" ? "Human" : "Assistant";
+			const text = msg.content?.find((c) => c.type === "text")?.text || msg.text || "";
+			lines.push(`[${label}]\n${text}`);
+		}
+
+		navigator.clipboard.writeText(lines.join("\n\n")).then(() => {
+			setCopyFeedback(true);
+			setTimeout(() => setCopyFeedback(false), 2000);
+		});
+	};
+	//#endregion
 
 	//#region Date Formatting Helpers
 	const formatCreatedDate = (dateString: string): string => {
@@ -84,7 +112,15 @@ const DetailsPane: React.FC = () => {
 
 	return (
 		<div className="details-pane active">
-			<h3>Message Details</h3>
+			<div className="details-pane-header">
+				<h3>Message Details</h3>
+				{showCopyConversation && (
+					<button className={`copy-conversation-btn${copyFeedback ? " copied" : ""}`} onClick={copyConversation} title="Copy conversation branch to clipboard">
+						<Copy size={14} />
+						{copyFeedback ? "Copied!" : "Copy conversation"}
+					</button>
+				)}
+			</div>
 
 			{pathKeys.length > 0 && (
 				<div className="message-branch-path">
