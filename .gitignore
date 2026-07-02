@@ -26,3 +26,7 @@ dist-ssr
 chats/
 .claude/
 CLAUDE.md
+
+# Local planning/context docs
+CONTEXT.md
+docs/
