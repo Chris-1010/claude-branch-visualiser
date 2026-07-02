@@ -3,7 +3,7 @@ import { Menu, ExternalLink } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
 
 const Header: React.FC = () => {
-	const { currentChatFile, sidebarOpen, toggleSidebar, renameChatFile, fileserverPassword, appMode, setAppMode, selectedDirectory } = useChatContext();
+	const { currentChatFile, sidebarOpen, toggleSidebar, renameChatFile, fileserverPassword, appMode, setAppMode, selectedDirectory, goHome } = useChatContext();
 	const [editingName, setEditingName] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
 
@@ -56,7 +56,7 @@ const Header: React.FC = () => {
 				</div>
 			)}
 
-			<h1>Branch Visualiser</h1>
+			<h1 className="header-title-home" onClick={goHome} title="Back to home">Branch Visualiser</h1>
 
 			{appMode === "claudeai" && currentChatFile && (
 				<>

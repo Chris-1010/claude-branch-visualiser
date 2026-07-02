@@ -41,8 +41,10 @@ interface Message {
 }
 
 type AppMode = "claudeai" | "claudecode";
+type View = "home" | "visualiser";
 
 interface ChatContextType {
+	view: View;
 	chatFiles: ChatFile[];
 	currentChatFile: ChatFile | null;
 	allMessages: Message[];
@@ -72,6 +74,8 @@ interface ChatContextType {
 	renameChatFile: (id: string, newDisplayName: string) => Promise<void>;
 	setAppMode: (mode: AppMode) => void;
 	setSelectedDirectory: (dir: string | null) => void;
+	goHome: () => void;
+	enterVisualiser: (mode: AppMode) => void;
 }
 //#endregion
 
@@ -104,6 +108,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	const [fileserverPassword, setFileserverPasswordState] = useState<string | null>(null);
 	const [appMode, setAppModeState] = useState<AppMode>("claudeai");
 	const [selectedDirectory, setSelectedDirectoryState] = useState<string | null>(null);
+	// Top-level View. Always starts on the Landing Page ("home"); never persisted.
+	const [view, setView] = useState<View>("home");
 	//#endregion
 
 	//#region Derived State
@@ -248,13 +254,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 				setChatFiles(processedChatFiles);
 
-				// Load current chat file setting
+				// Load current chat file setting (restored behind the home view; a Mode Card reveals it)
 				const currentChatId = await dbManager.getSetting("currentChatId");
 				if (currentChatId && processedChatFiles.length > 0) {
 					const currentFile = processedChatFiles.find((file) => file.id === currentChatId);
 					console.log(`Current chat file ID: ${currentChatId}`);
 					if (currentFile) setCurrentChatFileState(currentFile);
-				} else setSidebarOpen(true);
+				}
+
+				// Load last selected directory (Claude Code Mode Card restores this)
+				const savedDirectory = await dbManager.getSetting("selectedDirectory");
+				if (savedDirectory) setSelectedDirectoryState(savedDirectory);
 
 				// Load fileserver password
 				const savedPassword = await dbManager.getPassword();
@@ -458,6 +468,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	const setSelectedDirectory = (dir: string | null) => {
 		setSelectedDirectoryState(dir);
 		setCurrentlySelectedMessage(null);
+		// Persist so the Claude Code Mode Card can restore the last directory. Mirrors currentChatId.
+		dbManager.saveSetting("selectedDirectory", dir).catch((error) => console.error("Failed to persist selectedDirectory:", error));
+	};
+	//#endregion
+
+	//#region View Management
+	// Return to the Landing Page — a pure View switch, no selection reset.
+	const goHome = () => setView("home");
+
+	// Enter the Visualiser in the given Mode: set the mode explicitly and open the sidebar.
+	const enterVisualiser = (mode: AppMode) => {
+		setAppModeState(mode);
+		setSidebarOpen(true);
+		setView("visualiser");
 	};
 	//#endregion
 
@@ -472,6 +496,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	return (
 		<ChatContext.Provider
 			value={{
+				view,
 				chatFiles,
 				currentChatFile,
 				allMessages: appMode === "claudeai"
@@ -503,6 +528,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				renameChatFile,
 				setAppMode,
 				setSelectedDirectory,
+				goHome,
+				enterVisualiser,
 			}}
 		>
 			{children}

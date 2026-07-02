@@ -2,7 +2,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import * as go from "gojs";
 import { useChatContext } from "../context/ChatContext";
-import Help from "./Help";
 //#endregion
 
 // 10 branch colours that suit white text on dark backgrounds
@@ -407,7 +406,6 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 					}}
 				/>
 			</div>
-			<Help />
 		</>
 	);
 });
