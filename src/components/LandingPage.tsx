@@ -10,7 +10,8 @@ const LandingPage: React.FC = () => {
 			<CircleQuestionMark className="landing-help" size={34} onClick={() => setShowHelp(!showHelp)} />
 
 			<div className="landing-hero">
-				<img src="/icon.png" alt="" className="landing-icon" />
+				{/* BASE_URL (trailing slash) keeps this correct under the /branches/ prod base */}
+				<img src={`${import.meta.env.BASE_URL}icon.png`} alt="" className="landing-icon" />
 				<h1 className="landing-title">Branch Visualiser</h1>
 			</div>
 
