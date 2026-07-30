@@ -18,7 +18,7 @@ function AppContent() {
 	return (
 		<>
 			{view === "home" ? (
-				<LandingPage />
+				<LandingPage chatTreeRef={chatTreeRef} />
 			) : (
 				<>
 					<Header />

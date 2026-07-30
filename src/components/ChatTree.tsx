@@ -26,7 +26,8 @@ function getBranchColor(branch: string, branchIndex: Map<string, number>): strin
 }
 
 interface ChatTreeRef {
-	scrollToMessage: (messageUuid: string) => void;
+	// Returns false when the node is not in the diagram yet, so callers can retry
+	scrollToMessage: (messageUuid: string) => boolean;
 }
 
 const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
@@ -383,13 +384,13 @@ const ChatTree = forwardRef<ChatTreeRef, {}>((_, ref) => {
 
 	useImperativeHandle(ref, () => ({
 		scrollToMessage: (messageUuid: string) => {
-			if (diagramInstanceRef.current) {
-				const node = diagramInstanceRef.current.findNodeForKey(messageUuid);
-				if (node) {
-					diagramInstanceRef.current.select(node);
-					diagramInstanceRef.current.centerRect(node.actualBounds);
-				}
-			}
+			if (!diagramInstanceRef.current) return false;
+			const node = diagramInstanceRef.current.findNodeForKey(messageUuid);
+			if (!node) return false;
+
+			diagramInstanceRef.current.select(node);
+			diagramInstanceRef.current.centerRect(node.actualBounds);
+			return true;
 		},
 	}));
 	//#endregion

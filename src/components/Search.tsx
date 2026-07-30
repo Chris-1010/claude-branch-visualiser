@@ -6,7 +6,10 @@ import type { ChatTreeRef } from "./ChatTree";
 //#endregion
 
 interface SearchProps {
-	chatTreeRef: React.RefObject<ChatTreeRef | null>;
+	// Omitted on the Landing Page, where no tree is mounted yet
+	chatTreeRef?: React.RefObject<ChatTreeRef | null>;
+	// Landing Page variant: centred under the Mode Cards, always searches all chats
+	landing?: boolean;
 }
 
 interface SearchResult {
@@ -16,15 +19,16 @@ interface SearchResult {
 	isTitleMatch?: boolean;
 }
 
-const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
+const Search: React.FC<SearchProps> = ({ chatTreeRef, landing = false }) => {
 	//#region State
 	const [isOpen, setIsOpen] = useState(false);
-	const [searchMode, setSearchMode] = useState<"current" | "all">("current");
+	// The Landing Page has no current chat, so it is locked to the all-chats search
+	const [searchMode, setSearchMode] = useState<"current" | "all">(landing ? "all" : "current");
 	const [searchQuery, setSearchQuery] = useState("");
 	const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
 	const [isSearching, setIsSearching] = useState(false);
 	const [selectedIndex, setSelectedIndex] = useState(-1);
-	const { allMessages, chatFiles, claudeCodeFiles, setCurrentChatFile, setSelectedDirectory, setAppMode, setCurrentlySelectedMessage, setSidebarOpen } = useChatContext();
+	const { allMessages, chatFiles, claudeCodeFiles, setCurrentChatFile, setSelectedDirectory, setAppMode, setCurrentlySelectedMessage, setSidebarOpen, enterVisualiser } = useChatContext();
 	const inputRef = useRef<HTMLInputElement>(null);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const workerRef = useRef<Worker | null>(null);
@@ -48,8 +52,8 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 
 	//#region Search Logic
 	const performSearch = (query: string) => {
-		// No query (or too short), or no messages
-		if (query.trim().length < 3 || !allMessages.length) {
+		// Too short to search. The all-chats path has no allMessages requirement — it reads chatFiles directly.
+		if (query.trim().length < 3 || (searchMode === "current" && !allMessages.length)) {
 			setSearchResults([]);
 			setIsSearching(false);
 			return;
@@ -149,13 +153,16 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 	//#endregion
 
 	//#region Keyboard Shortcut and Click Outside Handlers
+	// The Landing Page searches across files, so it only needs files present — not a loaded chat
+	const canSearch = landing ? chatFiles.length > 0 : allMessages.length > 0;
+
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key === "s" || e.key === "S") {
 				// Only trigger if not typing in an input/textarea
 				if (document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
 					e.preventDefault();
-					if (!isOpen && allMessages.length > 0) {
+					if (!isOpen && canSearch) {
 						openSearch();
 					}
 				}
@@ -175,7 +182,7 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 			document.removeEventListener("keydown", handleKeyDown);
 			document.removeEventListener("mousedown", handleClickOutside);
 		};
-	}, [isOpen, allMessages.length]);
+	}, [isOpen, canSearch]);
 	//#endregion
 
 	//#region Event Handlers
@@ -206,7 +213,28 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 		}
 	};
 
+	// Poll briefly for the tree to mount and render the target node, then centre on it
+	const scrollWhenReady = (messageUuid: string, attemptsLeft = 20) => {
+		if (chatTreeRef?.current?.scrollToMessage(messageUuid)) return;
+		if (attemptsLeft > 0) {
+			setTimeout(() => scrollWhenReady(messageUuid, attemptsLeft - 1), 100);
+		}
+	};
+
 	const handleResultClick = async (result: SearchResult) => {
+		const revealMessage = () => {
+			setCurrentlySelectedMessage(result.message);
+
+			// Coming from the Landing Page the tree mounts and loads its data only after the View
+			// switch, so retry briefly until the node exists rather than scrolling into an empty diagram.
+			if (landing) {
+				scrollWhenReady(result.message.uuid);
+				return;
+			}
+
+			chatTreeRef?.current?.scrollToMessage(result.message.uuid);
+		};
+
 		if (searchMode === "all") {
 			const fileName = (result.message as any)._chatFileName;
 			const targetChatFile = chatFiles.find((cf) => cf.name === fileName);
@@ -215,36 +243,22 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 				// Navigate to the directory containing this session, switching mode if needed
 				const ccFile = claudeCodeFiles.find((f) => f.name === fileName);
 				if (ccFile) {
-					setAppMode("claudecode");
+					if (landing) enterVisualiser("claudecode");
+					else setAppMode("claudecode");
 					setSelectedDirectory(ccFile.projectPath);
-					setTimeout(() => {
-						setCurrentlySelectedMessage(result.message);
-						if (chatTreeRef.current) {
-							chatTreeRef.current.scrollToMessage(result.message.uuid);
-						}
-					}, 100);
+					setTimeout(revealMessage, 100);
 				}
 			} else if (targetChatFile) {
-				setAppMode("claudeai");
+				if (landing) enterVisualiser("claudeai");
+				else setAppMode("claudeai");
 				await setCurrentChatFile(targetChatFile);
-				setTimeout(() => {
-					setCurrentlySelectedMessage(result.message);
-					if (chatTreeRef.current) {
-						chatTreeRef.current.scrollToMessage(result.message.uuid);
-					}
-				}, 100);
+				setTimeout(revealMessage, 100);
 			} else {
-				setCurrentlySelectedMessage(result.message);
-				if (chatTreeRef.current) {
-					chatTreeRef.current.scrollToMessage(result.message.uuid);
-				}
+				revealMessage();
 			}
 		} else {
 			// Current chat / current directory search
-			setCurrentlySelectedMessage(result.message);
-			if (chatTreeRef.current) {
-				chatTreeRef.current.scrollToMessage(result.message.uuid);
-			}
+			revealMessage();
 		}
 
 		handleClose();
@@ -337,23 +351,32 @@ const Search: React.FC<SearchProps> = ({ chatTreeRef }) => {
 
 	return (
 		<>
-			{allMessages.length > 0 && <SearchIcon className={`search-button${isOpen ? " active" : ""}`} size={60} onClick={handleSearchClick} />}
+			{canSearch && (
+				<SearchIcon
+					className={`search-button${landing ? " search-button-landing" : ""}${isOpen ? " active" : ""}`}
+					size={60}
+					onClick={handleSearchClick}
+				/>
+			)}
 			<div className="search-container">
-				<div className="search-dropdown" ref={dropdownRef}>
-					<div className="search-tabs">
-						<button className={`search-tab ${searchMode === "current" ? "active" : ""}`} onClick={() => setSearchMode("current")}>
-							Current Chat
-						</button>
-						<button className={`search-tab ${searchMode === "all" ? "active" : ""}`} onClick={() => setSearchMode("all")}>
-							All Chats
-						</button>
-					</div>
+				<div className={`search-dropdown${landing ? " search-dropdown-landing" : ""}`} ref={dropdownRef}>
+					{/* The Landing Page has no current chat to scope to, so it always searches all chats */}
+					{!landing && (
+						<div className="search-tabs">
+							<button className={`search-tab ${searchMode === "current" ? "active" : ""}`} onClick={() => setSearchMode("current")}>
+								Current Chat
+							</button>
+							<button className={`search-tab ${searchMode === "all" ? "active" : ""}`} onClick={() => setSearchMode("all")}>
+								All Chats
+							</button>
+						</div>
+					)}
 
 					<div className="search-input-container">
 						<input
 							ref={inputRef}
 							type="text"
-							placeholder="Search messages..."
+							placeholder={landing ? "Search all chats..." : "Search messages..."}
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
 							onKeyDown={handleKeyDown}
