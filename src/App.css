@@ -643,6 +643,37 @@ code {
 	background: #7b38ac;
 }
 
+/* Landing Page variant: sits centred beneath the Mode Cards instead of pinned bottom-left */
+.search-button-landing {
+	position: relative;
+	/* Clear the base button's bottom-left pinning, which still offsets a relative element */
+	left: 0;
+	bottom: 0;
+	margin-top: 6vh;
+	align-self: center;
+	color: #ff9100;
+	/* Sits under the open panel, matching how the overlay covers the page in the Visualiser */
+	z-index: 1;
+	animation: landing-card-in 450ms ease-out both;
+	animation-delay: 240ms;
+}
+
+.search-button-landing:hover {
+	background: rgba(255, 145, 0, 0.12);
+}
+
+/* The Landing Page has no header, so the open panel spans the full page height */
+.search-button-landing.active + .search-container {
+	top: 0;
+	height: 100%;
+}
+
+/* No tabs on the Landing Page — round off the top of the input row instead */
+.search-dropdown-landing .search-input-container {
+	border-top-left-radius: 2rem;
+	border-top-right-radius: 2rem;
+}
+
 /* #region # Heatmap Toggle */
 .heatmap-button {
 	position: fixed;
@@ -1472,14 +1503,15 @@ section.help > div > a:hover {
 	display: flex;
 	justify-content: center;
 	align-items: stretch;
-	gap: 4rem;
+	gap: 2rem;
 	flex-wrap: wrap;
 	padding: 0 2rem;
 }
 
 .landing-card {
-	min-width: 260px;
-	padding: 2.5rem 3rem;
+	/* Fixed width so both cards match regardless of label length */
+	width: 26rem;
+	padding: 2.5rem 1.5rem;
 	font-size: 1.4rem;
 	font-weight: 600;
 	color: #f0f0f0;

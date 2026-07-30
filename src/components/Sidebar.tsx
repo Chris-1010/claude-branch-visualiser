@@ -25,13 +25,13 @@ const Sidebar: React.FC = () => {
 		showHelp,
 		setShowHelp,
 		fileserverPassword,
-		setFileserverPassword,
 		appMode,
+		isSyncing,
+		syncFromFileserver,
 	} = useChatContext();
 
 	const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 	const [storageInfo, setStorageInfo] = useState<{ count: number; sizeEstimate: string }>({ count: 0, sizeEstimate: "0MB" });
-	const [isSyncing, setIsSyncing] = useState(false);
 	const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
 	//#endregion
 
@@ -48,16 +48,7 @@ const Sidebar: React.FC = () => {
 	}, [chatFiles, isLoading, getStorageInfo]);
 	//#endregion
 
-	//#region Auto-sync on initial load
-	const hasSyncedRef = useRef(false);
-	useEffect(() => {
-		if (!isLoading && fileserverPassword && !hasSyncedRef.current) {
-			hasSyncedRef.current = true;
-			console.log("[Sync] Auto-syncing on page load");
-			syncFromFileserver();
-		}
-	}, [isLoading, fileserverPassword]);
-	//#endregion
+	// Sync lives in ChatContext so it also runs on the Landing Page, where search needs the latest files
 
 	const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
@@ -102,120 +93,6 @@ const Sidebar: React.FC = () => {
 		if (inputRef) {
 			inputRef.value = "";
 		}
-	};
-	//#endregion
-
-	//#region Sync from Fileserver
-	const syncFromFileserver = async () => {
-		if (!fileserverPassword) {
-			alert("Fileserver password not set. Open the help section to set it up.");
-			return;
-		}
-
-		setIsSyncing(true);
-		try {
-			await syncDirectory("", fileserverPassword);
-			await syncDirectory("claude-code/", fileserverPassword);
-			console.log("[Sync] All syncs complete");
-		} catch (error) {
-			console.error("[Sync] Failed:", error);
-			alert("Sync failed. Check console for details.");
-		} finally {
-			setIsSyncing(false);
-		}
-	};
-
-	const syncDirectory = async (subDir: string, password: string) => {
-		const baseUrl = `https://files.server-chris.com/projects/claude-branch-visualiser/${subDir}`;
-		const isClaudeCode = subDir === "claude-code/";
-
-		const response = await fetch(`${baseUrl}?ls&pw=${encodeURIComponent(password)}`);
-		if (!response.ok) {
-			if (response.status === 401 || response.status === 403) {
-				alert("Invalid password. Please set the correct password in the help section.");
-				await setFileserverPassword(null);
-			}
-			throw new Error(`Failed to fetch file list from ${subDir}: ${response.status}`);
-		}
-
-		const data = await response.json();
-		const serverFiles = data.files || [];
-
-		console.log(`[Sync] Found ${serverFiles.length} files in ${subDir || "root"}`);
-
-		// Create a map of existing files by name for quick lookup
-		const existingFilesMap = new Map(chatFiles.map((file) => [file.name, file]));
-
-		let downloadedCount = 0;
-		let updatedCount = 0;
-		let skippedCount = 0;
-
-		for (const serverFile of serverFiles) {
-			const fileName = serverFile.href;
-			const serverTimestamp = serverFile.tags[".up_at"];
-
-			if (serverFile.ext !== "json") {
-				console.log(`[Sync] Skipping non-JSON file: ${fileName}`);
-				continue;
-			}
-
-			// For Claude Code files, store with the subdir prefix to avoid name collisions
-			const storeKey = isClaudeCode ? `claude-code/${fileName}` : fileName;
-			const existingFile = existingFilesMap.get(storeKey);
-
-			let shouldDownload = false;
-			if (!existingFile) {
-				console.log(`[Sync] New file detected: ${storeKey}`);
-				shouldDownload = true;
-			} else {
-				const existingTimestamp = new Date(existingFile.lastUpdated).getTime() / 1000;
-				if (serverTimestamp > existingTimestamp) {
-					console.log(`[Sync] File has updates: ${storeKey}`);
-					shouldDownload = true;
-				} else {
-					skippedCount++;
-				}
-			}
-
-			if (shouldDownload) {
-				try {
-					const fileUrl = `${baseUrl}${encodeURIComponent(fileName)}?pw=${encodeURIComponent(password)}&dl`;
-					const fileResponse = await fetch(fileUrl);
-
-					if (!fileResponse.ok) {
-						console.error(`[Sync] Failed to download ${storeKey}: ${fileResponse.status}`);
-						continue;
-					}
-
-					const fileData = await fileResponse.json();
-
-					if (!fileData.chat_messages) {
-						console.warn(`[Sync] File ${storeKey} missing chat_messages, skipping`);
-						continue;
-					}
-
-					if (isClaudeCode) {
-						const projectPath = fileData.project?.path || "unknown";
-						const gitBranch = fileData.project?.git_branch || "HEAD";
-						await addOrUpdateChatFile(storeKey, fileData.chat_messages, false, fileData.uuid, "CLAUDE_CODE", projectPath, gitBranch);
-					} else {
-						await addOrUpdateChatFile(storeKey, fileData.chat_messages, false, fileData.uuid);
-					}
-
-					if (existingFile) {
-						updatedCount++;
-						console.log(`[Sync] ✓ Updated: ${storeKey}`);
-					} else {
-						downloadedCount++;
-						console.log(`[Sync] ✓ Downloaded: ${storeKey}`);
-					}
-				} catch (error) {
-					console.error(`[Sync] Error processing ${storeKey}:`, error);
-				}
-			}
-		}
-
-		console.log(`[Sync] ${subDir || "root"} — Downloaded: ${downloadedCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`);
 	};
 	//#endregion
 
@@ -585,7 +462,7 @@ const Sidebar: React.FC = () => {
 				<h2>{appMode === "claudecode" ? "Directories" : "Chat Files"}</h2>
 				<div className="sidebar-header-actions">
 					{fileserverPassword && (
-						<button className="sidebar-header-btn sync" onClick={syncFromFileserver} disabled={isSyncing} title="Sync from fileserver">
+						<button className="sidebar-header-btn sync" onClick={() => syncFromFileserver()} disabled={isSyncing} title="Sync from fileserver">
 							<RefreshCw size={16} className={isSyncing ? "spinning" : ""} />
 						</button>
 					)}

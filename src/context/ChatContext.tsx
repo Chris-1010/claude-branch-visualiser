@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
 import { dbManager, type ChatFile, type ClaudeCodeChatFile } from "../utils/indexedDB";
 
 //#region Interfaces
@@ -55,6 +55,8 @@ interface ChatContextType {
 	showHelp: boolean;
 	heatmapEnabled: boolean;
 	fileserverPassword: string | null;
+	isSyncing: boolean;
+	syncFromFileserver: (options?: { silent?: boolean }) => Promise<void>;
 	appMode: AppMode;
 	selectedDirectory: string | null;
 	claudeAiFiles: ChatFile[];
@@ -106,6 +108,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 	const [showHelp, setShowHelp] = useState<boolean>(false);
 	const [heatmapEnabled, setHeatmapEnabled] = useState<boolean>(false);
 	const [fileserverPassword, setFileserverPasswordState] = useState<string | null>(null);
+	const [isSyncing, setIsSyncing] = useState(false);
 	const [appMode, setAppModeState] = useState<AppMode>("claudeai");
 	const [selectedDirectory, setSelectedDirectoryState] = useState<string | null>(null);
 	// Top-level View. Always starts on the Landing Page ("home"); never persisted.
@@ -283,6 +286,138 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 		loadInitialData();
 	}, []);
+	//#endregion
+
+	//#region Fileserver Sync
+	// Mirror of chatFiles for the sync, which compares timestamps across two sequential
+	// directory passes and would otherwise read a stale state snapshot on the second pass.
+	const chatFilesRef = useRef<ChatFile[]>([]);
+	useEffect(() => {
+		chatFilesRef.current = chatFiles;
+	}, [chatFiles]);
+
+	const syncDirectory = async (subDir: string, password: string, silent: boolean) => {
+		const baseUrl = `https://files.server-chris.com/projects/claude-branch-visualiser/${subDir}`;
+		const isClaudeCode = subDir === "claude-code/";
+
+		const response = await fetch(`${baseUrl}?ls&pw=${encodeURIComponent(password)}`);
+		if (!response.ok) {
+			if (response.status === 401 || response.status === 403) {
+				if (!silent) alert("Invalid password. Please set the correct password in the help section.");
+				await setFileserverPassword(null);
+			}
+			throw new Error(`Failed to fetch file list from ${subDir}: ${response.status}`);
+		}
+
+		const data = await response.json();
+		const serverFiles = data.files || [];
+
+		console.log(`[Sync] Found ${serverFiles.length} files in ${subDir || "root"}`);
+
+		let downloadedCount = 0;
+		let updatedCount = 0;
+		let skippedCount = 0;
+
+		for (const serverFile of serverFiles) {
+			const fileName = serverFile.href;
+			const serverTimestamp = serverFile.tags[".up_at"];
+
+			if (serverFile.ext !== "json") {
+				console.log(`[Sync] Skipping non-JSON file: ${fileName}`);
+				continue;
+			}
+
+			// For Claude Code files, store with the subdir prefix to avoid name collisions
+			const storeKey = isClaudeCode ? `claude-code/${fileName}` : fileName;
+			const existingFile = chatFilesRef.current.find((file) => file.name === storeKey);
+
+			let shouldDownload = false;
+			if (!existingFile) {
+				console.log(`[Sync] New file detected: ${storeKey}`);
+				shouldDownload = true;
+			} else {
+				const existingTimestamp = new Date(existingFile.lastUpdated).getTime() / 1000;
+				if (serverTimestamp > existingTimestamp) {
+					console.log(`[Sync] File has updates: ${storeKey}`);
+					shouldDownload = true;
+				} else {
+					skippedCount++;
+				}
+			}
+
+			if (shouldDownload) {
+				try {
+					const fileUrl = `${baseUrl}${encodeURIComponent(fileName)}?pw=${encodeURIComponent(password)}&dl`;
+					const fileResponse = await fetch(fileUrl);
+
+					if (!fileResponse.ok) {
+						console.error(`[Sync] Failed to download ${storeKey}: ${fileResponse.status}`);
+						continue;
+					}
+
+					const fileData = await fileResponse.json();
+
+					if (!fileData.chat_messages) {
+						console.warn(`[Sync] File ${storeKey} missing chat_messages, skipping`);
+						continue;
+					}
+
+					if (isClaudeCode) {
+						const projectPath = fileData.project?.path || "unknown";
+						const gitBranch = fileData.project?.git_branch || "HEAD";
+						await addOrUpdateChatFile(storeKey, fileData.chat_messages, false, fileData.uuid, "CLAUDE_CODE", projectPath, gitBranch);
+					} else {
+						await addOrUpdateChatFile(storeKey, fileData.chat_messages, false, fileData.uuid);
+					}
+
+					if (existingFile) {
+						updatedCount++;
+						console.log(`[Sync] ✓ Updated: ${storeKey}`);
+					} else {
+						downloadedCount++;
+						console.log(`[Sync] ✓ Downloaded: ${storeKey}`);
+					}
+				} catch (error) {
+					console.error(`[Sync] Error processing ${storeKey}:`, error);
+				}
+			}
+		}
+
+		console.log(`[Sync] ${subDir || "root"} — Downloaded: ${downloadedCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`);
+	};
+
+	// `silent` suppresses alerts for the automatic sync, which can run on the Landing Page
+	const syncFromFileserver = async (options?: { silent?: boolean }) => {
+		const silent = options?.silent ?? false;
+
+		if (!fileserverPassword) {
+			if (!silent) alert("Fileserver password not set. Open the help section to set it up.");
+			return;
+		}
+
+		setIsSyncing(true);
+		try {
+			await syncDirectory("", fileserverPassword, silent);
+			await syncDirectory("claude-code/", fileserverPassword, silent);
+			console.log("[Sync] All syncs complete");
+		} catch (error) {
+			console.error("[Sync] Failed:", error);
+			if (!silent) alert("Sync failed. Check console for details.");
+		} finally {
+			setIsSyncing(false);
+		}
+	};
+
+	// Auto-sync once the password is known, regardless of which View is showing, so
+	// searching from the Landing Page covers the latest files.
+	const hasSyncedRef = useRef(false);
+	useEffect(() => {
+		if (!isLoading && fileserverPassword && !hasSyncedRef.current) {
+			hasSyncedRef.current = true;
+			console.log("[Sync] Auto-syncing on page load");
+			syncFromFileserver({ silent: true });
+		}
+	}, [isLoading, fileserverPassword]);
 	//#endregion
 
 	//#region Active Tree Data
@@ -509,6 +644,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 				showHelp,
 				heatmapEnabled,
 				fileserverPassword,
+				isSyncing,
+				syncFromFileserver,
 				appMode,
 				selectedDirectory,
 				claudeAiFiles,

@@ -1,8 +1,15 @@
 import React from "react";
 import { CircleQuestionMark } from "lucide-react";
 import { useChatContext } from "../context/ChatContext";
+import Search from "./Search";
+import type { ChatTreeRef } from "./ChatTree";
 
-const LandingPage: React.FC = () => {
+interface LandingPageProps {
+	// Shared with the Visualiser so a search result can be centred once the tree mounts
+	chatTreeRef: React.RefObject<ChatTreeRef | null>;
+}
+
+const LandingPage: React.FC<LandingPageProps> = ({ chatTreeRef }) => {
 	const { fileserverPassword, isLoading, showHelp, setShowHelp, enterVisualiser } = useChatContext();
 
 	return (
@@ -28,6 +35,8 @@ const LandingPage: React.FC = () => {
 					)}
 				</div>
 			)}
+
+			{!isLoading && <Search chatTreeRef={chatTreeRef} landing />}
 		</div>
 	);
 };
